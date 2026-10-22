@@ -30,9 +30,13 @@ export function render() {
 }
 
 function renderUpload() {
-  return `<div class="dropzone" onclick="A.simulateParse()"
+  return `<div class="dropzone" id="dropzone"
+      onclick="document.getElementById('pdfInput').click()"
       ondragover="event.preventDefault();this.classList.add('drag')"
-      ondragleave="this.classList.remove('drag')">
+      ondragleave="this.classList.remove('drag')"
+      ondrop="A.handleDrop(event)">
+      <input type="file" id="pdfInput" accept=".pdf,application/pdf"
+        style="display:none" onchange="A.handleFile(this.files[0])">
       <div class="up-icon">📄</div>
       <div class="dz-title">点击或拖拽上传简历 PDF</div>
       <div class="dz-sub">支持文本型与扫描件（OCR）· 解析不留存原文</div>
@@ -142,7 +146,9 @@ function renderSuccess() {
 export function logParsing() {
   const el = document.getElementById('parseLog');
   if (!el) return;
+  const fileName = (window.A && window.A.state && window.A.state.draftFileName) || 'resume.pdf';
   const logs = [
+    `✓ 已接收文件：${fileName}`,
     '✓ 提取文本层（共 3 页）',
     '✓ 识别小标题：基本信息 / 项目经历 / 实践经历 / 荣誉奖励',
     '✓ 结构化字段 24 项',

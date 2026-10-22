@@ -158,6 +158,25 @@ const A = {
     state._parseStarted = false;
     render();
   },
+  handleFile(file) {
+    if (!file) return;
+    if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
+      toast('请选择 PDF 格式的简历');
+      return;
+    }
+    state.draftFileName = file.name;
+    state.wizardStep = 1;
+    state._parseStarted = false;
+    render();
+  },
+  handleDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const dropzone = event.currentTarget;
+    dropzone.classList.remove('drag');
+    const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+    if (file) A.handleFile(file);
+  },
   nextWizardStep(step) {
     state.wizardStep = step;
     render();
