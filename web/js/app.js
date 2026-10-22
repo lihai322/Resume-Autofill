@@ -1,15 +1,15 @@
 import {
   state, loadState, saveSession, saveProfiles, saveSettings,
   getProfile, addProfile, resetAll
-} from './store.js?v=20261023o';
-import { seedProfiles } from './seed.js?v=20261023o';
-import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023o';
-import * as authView from './views/auth.js?v=20261023o';
-import * as profilesView from './views/profiles.js?v=20261023o';
-import * as importView from './views/import.js?v=20261023o';
-import * as editorView from './views/editor.js?v=20261023o';
-import * as settingsView from './views/settings.js?v=20261023o';
-import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023o';
+} from './store.js?v=20261023p';
+import { seedProfiles } from './seed.js?v=20261023p';
+import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023p';
+import * as authView from './views/auth.js?v=20261023p';
+import * as profilesView from './views/profiles.js?v=20261023p';
+import * as importView from './views/import.js?v=20261023p';
+import * as editorView from './views/editor.js?v=20261023p';
+import * as settingsView from './views/settings.js?v=20261023p';
+import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023p';
 
 loadState();
 
@@ -77,6 +77,7 @@ function appendLog(msg) {
 
 async function runParse(file, useSimulated) {
   try {
+    appendLog(`🔖 程序版本：v20261023p`);
     appendLog(`✓ 已接收文件：${state.draftFileName}`);
     if (useSimulated) {
       await delay(600);
@@ -122,8 +123,8 @@ async function runParse(file, useSimulated) {
         }
       }
       appendLog(`✓ 提取文本 ${text.length} 字符`);
-      const preview = text.replace(/\s+/g, ' ').slice(0, 800);
-      appendLog(`<div style="margin-top:6px;padding:8px;background:#f5f5f5;border-radius:6px;font-size:11px;color:#555;line-height:1.6;word-break:break-all">📄 原文片段：${escapeHtml(preview)}…</div>`);
+      const preview = text.replace(/\s+/g, ' ');
+      appendLog(`<div style="margin-top:6px;padding:8px;background:#f5f5f5;border-radius:6px;font-size:11px;color:#555;line-height:1.6;word-break:break-all;max-height:120px;overflow-y:auto">📄 原文片段：${escapeHtml(preview)}</div>`);
       appendLog(`✓ 识别到教育经历 ${parsed.education?.length || 0} 条、项目经历 ${parsed.experiences?.length || 0} 条`);
       state.draft = mergeDraft(parsed);
       const low = lowConfidenceFields(state.draft);
