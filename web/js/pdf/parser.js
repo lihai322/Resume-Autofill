@@ -320,9 +320,13 @@ function extractSection(text, headerRe) {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
   let start = -1;
   for (let i = 0; i < lines.length; i += 1) {
-    if (headerRe.test(lines[i])) { start = i + 1; break; }
+    if (headerRe.test(lines[i])) { start = i; break; }
   }
   if (start === -1) return '';
+  // 若标题行本身包含教育内容（年份/学校），则从标题行开始；否则从下一行开始
+  const headerLine = lines[start];
+  const hasContentInHeader = /(?:19|20)\d{2}|大学|学院|学校|University|College/.test(headerLine.replace(headerRe, ''));
+  if (!hasContentInHeader) start += 1;
   let end = lines.length;
   for (let i = start; i < lines.length; i += 1) {
     if (ALL_SECTION_RE.test(lines[i]) && !headerRe.test(lines[i])) { end = i; break; }
