@@ -124,9 +124,10 @@ function parseName(text) {
 }
 
 function parsePhone(text) {
-  // 手机号：11 位；也兼容 3-4-4 分段写法（如 138 0000 6688）
-  const m = text.match(/1[3-9]\d{9}|1[3-9]\d\s?\d{4}\s?\d{4}/);
-  return m ? m[0].replace(/\s/g, '') : '';
+  // 手机号：11 位；兼容 3-4-4 分段写法，分隔符可为空格或横线
+  // 如 18800003333 / 188 0000 3333 / 188-0000-3333
+  const m = text.match(/1[3-9]\d{9}|1[3-9]\d[-\s]?\d{4}[-\s]?\d{4}/);
+  return m ? m[0].replace(/[-\s]/g, '') : '';
 }
 
 function parseEmail(text) {
@@ -154,8 +155,11 @@ function parseLocation(text) {
 }
 
 function parseEducation(text) {
-  const edu = { school: '', major: '', degree: '', period: '' };
+  const edu = { school: '', major: '', degree: '', academic_degree: '', gpa: '', period: '' };
   edu.degree = pick(/(博士|硕士|本科|大专|专科|学士)/, text);
+  // 学位：带学科前缀，如「工学学士」「理学硕士」「管理学博士」
+  edu.academic_degree = pick(/([\u4e00-\u9fa5]{1,6}(?:学士|硕士|博士))/, text)
+    || pick(/(?:学位)[：:\s]*([\u4e00-\u9fa5]{2,10})/, text);
   edu.school = pick(/([\u4e00-\u9fa5A-Za-z]{2,20}(大学|学院|学校|University|College))/, text);
   // 专业：优先 "专业：xxx"，其次从非学校名的关键词里找
   const labeledMajor = pick(/(?:专业|主修)[：:\s]*([\u4e00-\u9fa5A-Za-z]{2,20})/, text);
@@ -163,8 +167,17 @@ function parseEducation(text) {
     edu.major = labeledMajor;
   } else {
     const majorCandidates = text.match(/[\u4e00-\u9fa5]{2,12}(学|工程|管理|经济|科学|技术|设计|医学|法学|文学)/g) || [];
-    edu.major = majorCandidates.find((m) => !edu.school || !m.includes(edu.school.slice(0, 4))) || '';
+    edu.major = majorCandidates.find((m) => {
+      // 排除学校名片段
+      if (edu.school && m.includes(edu.school.slice(0, 4))) return false;
+      // 排除学位相关片段（如「工学学」来自「工学学士」）
+      if (edu.academic_degree && edu.academic_degree.includes(m)) return false;
+      if (edu.degree && m.includes(edu.degree)) return false;
+      return true;
+    }) || '';
   }
+  // 绩点：GPA 3.8 / 绩点：3.8/4.0
+  edu.gpa = pick(/(?:GPA|gpa|绩点)[:：\s]*([\d.]+(?:\s*\/\s*[\d.]+)?)/, text);
   const period = text.match(/((?:19|20)\d{2})\s*[-~至到]\s*((?:19|20)\d{2})/);
   if (period) edu.period = `${period[1]}-${period[2]}`;
   return edu;
@@ -185,8 +198,23 @@ function parseExperiences(text) {
       const endRaw = periodMatch[3];
       const end = /至今|现在/.test(endRaw) ? '至今' : `${endRaw}-${String(periodMatch[4] || '01').padStart(2, '0')}`;
       const nameLine = line.replace(periodMatch[0], '').trim() || lines[i + 1] || '';
-      const name = nameLine.replace(/\(.*?\)/g, '').replace(/（.*?）/g, '').trim().slice(0, 40);
-      const role = pick(/(前端|后端|全栈|产品|算法|测试|运营|设计|开发|经理|主管|工程师|实习生|负责人)/, nameLine);
+      // 角色词：连续 1-3 个角色关键词（中间允许空格），如「前端负责人」「产品经理」
+      const rolePat = '前端|后端|全栈|产品|算法|测试|运营|设计|开发|经理|主管|工程师|实习生|负责人|架构师|分析师|顾问';
+      const roleRe = new RegExp(`(${rolePat})(?:\\s*(${rolePat})){0,2}`);
+      const roleMatch = nameLine.match(roleRe);
+      let role = '';
+      let name = nameLine;
+      if (roleMatch) {
+        role = roleMatch[0].replace(/\s+/g, '');
+        name = nameLine.replace(roleMatch[0], '');
+      }
+      // 去掉括号内容 + 首尾分隔符（空格 / | / · / - / 冒号 / 逗号）
+      name = name
+        .replace(/\(.*?\)/g, '')
+        .replace(/（.*?）/g, '')
+        .replace(/^[\s|·\-:：,，]+|[\s|·\-:：,，]+$/g, '')
+        .trim()
+        .slice(0, 40);
       const descLines = [];
       let j = i + 1;
       while (j < lines.length && !/((?:19|20)\d{2})[年.\-/]?\s*(\d{1,2})?\s*[-~至到]/.test(lines[j])) {

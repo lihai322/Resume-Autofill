@@ -78,13 +78,35 @@ function renderPreview() {
   const p = state.draft;
   if (!p) return '<div class="empty">草稿不存在</div>';
 
+  const education = (p.education || []).map((ed, i) => `
+    <div class="exp-item">
+      <div class="exp-head">
+        <div class="t">学校 ${i + 1}：${escapeHtml(ed.school || '未填写')}</div>
+        <button class="btn btn-ghost btn-sm" onclick="A.removeDraftItem('education',${i})">删除</button>
+      </div>
+      <div class="row-2">
+        ${field('毕业院校', `education.${i}.school`, ed.school)}
+        ${field('毕业时间', `education.${i}.period`, ed.period)}
+        ${field('学历', `education.${i}.degree`, ed.degree)}
+        ${field('学位', `education.${i}.academic_degree`, ed.academic_degree)}
+        ${field('绩点', `education.${i}.gpa`, ed.gpa)}
+        ${field('主修科目', `education.${i}.major`, ed.major)}
+      </div>
+    </div>`).join('');
+
   const experiences = p.experiences.map((e, i) => `
     <div class="exp-item">
       <div class="exp-head">
-        <div class="t">${escapeHtml(e.type)}经历 ${i + 1}：${escapeHtml(e.name)}</div>
+        <div class="t">经历 ${i + 1}</div>
         <button class="btn btn-ghost btn-sm" onclick="A.removeDraftItem('experiences',${i})">删除</button>
       </div>
       <div class="row-2">
+        <div class="field"><label>类型</label>
+          <select data-path="experiences.${i}.type">
+            <option value="项目" ${e.type === '项目' ? 'selected' : ''}>项目</option>
+            <option value="实践" ${e.type === '实践' ? 'selected' : ''}>实践</option>
+          </select></div>
+        <div class="field"><label>名称</label><input data-path="experiences.${i}.name" value="${escapeHtml(e.name)}"></div>
         <div class="field"><label>角色</label><input data-path="experiences.${i}.role" value="${escapeHtml(e.role)}"></div>
         <div class="field"><label>起止时间</label>
           <input value="${escapeHtml(`${e.start} ~ ${e.end}`)}" disabled></div>
@@ -109,6 +131,11 @@ function renderPreview() {
       ${field('手机号', 'phone', p.phone)}
       ${field('邮箱', 'email', p.email)}
       ${field('所在城市', 'location', p.location, true)}
+    </div>
+    <div class="section-block">
+      <h3>🎓 学校</h3>
+      ${education || '<div class="empty" style="padding:16px">暂无学校信息</div>'}
+      <button class="btn btn-ghost btn-sm" onclick="A.addDraftEducation()">+ 添加学校</button>
     </div>
     <div class="section-block">
       <h3>💼 项目 / 实践经历</h3>

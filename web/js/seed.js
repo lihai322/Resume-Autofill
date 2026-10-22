@@ -13,7 +13,7 @@ export const seedProfiles = [
     email: 'liming@example.com',
     location: '北京',
     education: [
-      { school: '北京邮电大学', major: '计算机科学与技术', degree: '本科', period: '2016-2020' }
+      { school: '北京邮电大学', major: '计算机科学与技术', degree: '本科', academic_degree: '工学学士', gpa: '3.8/4.0', period: '2016-2020' }
     ],
     experiences: [
       {
@@ -53,7 +53,7 @@ export const seedProfiles = [
     email: 'liming@example.com',
     location: '北京',
     education: [
-      { school: '北京邮电大学', major: '计算机科学与技术', degree: '本科', period: '2016-2020' }
+      { school: '北京邮电大学', major: '计算机科学与技术', degree: '本科', academic_degree: '工学学士', gpa: '3.8/4.0', period: '2016-2020' }
     ],
     experiences: [
       {

@@ -271,6 +271,15 @@ const A = {
     });
     render();
   },
+  addDraftEducation() {
+    if (!state.draft) return;
+    collectForm(state.draft);
+    state.draft.education = state.draft.education || [];
+    state.draft.education.push({
+      school: '', major: '', degree: '', academic_degree: '', gpa: '', period: ''
+    });
+    render();
+  },
   removeDraftItem(type, index) {
     if (!state.draft) return;
     collectForm(state.draft);

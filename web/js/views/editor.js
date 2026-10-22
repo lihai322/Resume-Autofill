@@ -4,6 +4,7 @@ import { escapeHtml, ageFrom, hexA } from '../utils.js';
 
 const NAV = [
   { k: 'basic', icon: '👤', label: '基本信息' },
+  { k: 'edu', icon: '🎓', label: '学校' },
   { k: 'exp', icon: '💼', label: '项目/实践' },
   { k: 'honor', icon: '🏆', label: '荣誉奖励' },
   { k: 'lang', icon: '🗣', label: '语言能力' },
@@ -39,6 +40,7 @@ export function render() {
       </div>
       <div class="editor-body">
         ${basicSection(p)}
+        ${educationSection(p)}
         ${experienceSection(p)}
         ${honorSection(p)}
         ${languageSection(p)}
@@ -74,6 +76,33 @@ function basicSection(p) {
         </div>
       </div>
     </div>
+  </div>`;
+}
+
+function educationSection(p) {
+  const items = (p.education || []).map((ed, i) => `
+    <div class="exp-item">
+      <div class="exp-head">
+        <div class="t">${escapeHtml(ed.school || '未填写学校')}</div>
+        <span class="chip">${escapeHtml(ed.degree || '学历')}</span>
+      </div>
+      <div class="row-2">
+        ${input('毕业院校', `education.${i}.school`, ed.school)}
+        ${input('毕业时间', `education.${i}.period`, ed.period)}
+        ${input('学历', `education.${i}.degree`, ed.degree)}
+        ${input('学位', `education.${i}.academic_degree`, ed.academic_degree)}
+        ${input('绩点', `education.${i}.gpa`, ed.gpa)}
+        ${input('主修科目', `education.${i}.major`, ed.major)}
+      </div>
+      <div class="flex" style="justify-content:flex-end">
+        <button class="icon-btn" title="删除" onclick="A.removeItem('education',${i})">✕</button>
+      </div>
+    </div>`).join('');
+
+  return `<div id="sec-edu" class="editor-section card" style="padding:24px">
+    <h2>🎓 学校 <span class="chip chip-accent" style="font-weight:400;font-size:11px">教育经历</span></h2>
+    ${items || '<div class="empty" style="padding:24px">暂无学校信息</div>'}
+    <button class="btn btn-ghost btn-sm" onclick="A.addItem('education')">+ 添加学校</button>
   </div>`;
 }
 
@@ -181,6 +210,9 @@ function customSection(p) {
 }
 
 export const emptyItem = {
+  education: () => ({
+    school: '', major: '', degree: '', academic_degree: '', gpa: '', period: ''
+  }),
   experiences: () => ({
     type: '项目', name: '', role: '', start: '', end: '', desc: '', achievements: []
   }),
