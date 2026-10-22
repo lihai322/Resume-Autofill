@@ -154,7 +154,8 @@ function parseLocation(text) {
   return m ? m[0] : '';
 }
 
-function parseEducation(text) {
+// 解析单条教育经历
+function parseEducationEntry(text) {
   const edu = { school: '', major: '', degree: '', academic_degree: '', gpa: '', courses: '', period: '' };
   edu.degree = pick(/(博士|硕士|本科|大专|专科|学士)/, text);
   // 学位：带学科前缀，如「工学学士」「理学硕士」「管理学博士」
@@ -192,6 +193,38 @@ function parseEducation(text) {
   return edu;
 }
 
+// 解析全部教育经历（支持多条：硕士 + 本科）
+function parseEducation(text) {
+  // 先截取教育段（从教育标题到下一个段落标题）
+  const eduSection = extractSection(text, EDU_SECTION_RE);
+  const sectionText = eduSection || text;
+  const lines = sectionText.split('\n').map((l) => l.trim()).filter(Boolean);
+
+  // 按学历关键词切分多条教育经历
+  // 一行内若含「本科/硕士/博士/大专」或「年份-年份」，视为一条经历的起始
+  const entries = [];
+  let current = [];
+  const DEGREE_RE = /(博士|硕士|本科|大专|专科)/;
+  const YEAR_RE = /(?:19|20)\d{2}\s*[-~至到]\s*(?:19|20)\d{2}/;
+
+  for (const line of lines) {
+    const isNewEntry = DEGREE_RE.test(line) || (YEAR_RE.test(line) && /(大学|学院|学校)/.test(line));
+    if (isNewEntry && current.length > 0) {
+      entries.push(current.join(' '));
+      current = [];
+    }
+    current.push(line);
+  }
+  if (current.length > 0) entries.push(current.join(' '));
+
+  // 对每条经历解析，过滤掉无学校无学历的空条目
+  const result = entries
+    .map((entryText) => parseEducationEntry(entryText))
+    .filter((e) => e.school || e.degree || e.major);
+
+  return result.length > 0 ? result : [parseEducationEntry(text)];
+}
+
 // 根据专业关键词推断学位学科门类（工学/理学/农学/医学/文学/法学/经济学/管理学/教育学/艺术学/历史学）
 const DISCIPLINE_RULES = [
   { name: '工学', keywords: ['计算机', '软件', '电子', '通信', '信息工程', '机械', '土木', '建筑', '自动化', '材料', '化工', '化学工程', '能源', '航空', '船舶', '兵器', '核工程', '环境工程', '生物医学工程', '工业工程', '网络工程', '物联网', '人工智能', '数据科学', '电气工程', '车辆工程', '测绘', '地质工程', '采矿', '石油', '纺织', '轻工', '印刷', '安全工程'] },
@@ -220,6 +253,26 @@ const EDU_HINT = /(大学|学院|学校|University|College|教育|学历|专业|
 const EDU_SECTION_RE = /(教育背景|教育经历|教育情况|学历背景|学习经历|学习情况)/;
 const PRACTICE_SECTION_RE = /(实践经历|实践经验|实习经历|实习经验|工作经历|工作经验|校园经历|校园实践|社会实践|学生工作|志愿服务|社团活动|兼职经历|课外活动)/;
 const PROJECT_SECTION_RE = /(项目经历|项目经验|科研项目|项目背景|项目介绍|学术成果)/;
+
+// 所有已知段落标题（用于截取某一段落的内容范围）
+const ALL_SECTION_RE = new RegExp(
+  `(${EDU_SECTION_RE.source}|${PRACTICE_SECTION_RE.source}|${PROJECT_SECTION_RE.source}|荣誉|奖励|语言|技能|自评|自我评价|个人评价|兴趣|证书|资格)`
+);
+
+// 从全文中截取指定标题段落的内容（从该标题到下一个段落标题之间）
+function extractSection(text, headerRe) {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  let start = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (headerRe.test(lines[i])) { start = i + 1; break; }
+  }
+  if (start === -1) return '';
+  let end = lines.length;
+  for (let i = start; i < lines.length; i += 1) {
+    if (ALL_SECTION_RE.test(lines[i]) && !headerRe.test(lines[i])) { end = i; break; }
+  }
+  return lines.slice(start, end).join('\n');
+}
 
 // 识别一段时间段，用于经历切分
 function parseExperiences(text) {
@@ -342,7 +395,7 @@ export function parseResumeText(text) {
     email: parseEmail(text),
     birth_date: parseBirthDate(text),
     location: parseLocation(text),
-    education: [parseEducation(text)],
+    education: parseEducation(text),
     experiences: parseExperiences(text),
     honors: parseHonors(text),
     languages: parseLanguages(text),

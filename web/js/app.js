@@ -1,15 +1,15 @@
 import {
   state, loadState, saveSession, saveProfiles, saveSettings,
   getProfile, addProfile, resetAll
-} from './store.js?v=20261023b';
-import { seedProfiles } from './seed.js?v=20261023b';
-import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023b';
-import * as authView from './views/auth.js?v=20261023b';
-import * as profilesView from './views/profiles.js?v=20261023b';
-import * as importView from './views/import.js?v=20261023b';
-import * as editorView from './views/editor.js?v=20261023b';
-import * as settingsView from './views/settings.js?v=20261023b';
-import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023b';
+} from './store.js?v=20261023c';
+import { seedProfiles } from './seed.js?v=20261023c';
+import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023c';
+import * as authView from './views/auth.js?v=20261023c';
+import * as profilesView from './views/profiles.js?v=20261023c';
+import * as importView from './views/import.js?v=20261023c';
+import * as editorView from './views/editor.js?v=20261023c';
+import * as settingsView from './views/settings.js?v=20261023c';
+import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023c';
 
 loadState();
 
