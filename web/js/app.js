@@ -1,15 +1,15 @@
 import {
   state, loadState, saveSession, saveProfiles, saveSettings,
   getProfile, addProfile, resetAll
-} from './store.js?v=20261023s';
-import { seedProfiles } from './seed.js?v=20261023s';
-import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023s';
-import * as authView from './views/auth.js?v=20261023s';
-import * as profilesView from './views/profiles.js?v=20261023s';
-import * as importView from './views/import.js?v=20261023s';
-import * as editorView from './views/editor.js?v=20261023s';
-import * as settingsView from './views/settings.js?v=20261023s';
-import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023s';
+} from './store.js?v=20261023t';
+import { seedProfiles } from './seed.js?v=20261023t';
+import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023t';
+import * as authView from './views/auth.js?v=20261023t';
+import * as profilesView from './views/profiles.js?v=20261023t';
+import * as importView from './views/import.js?v=20261023t';
+import * as editorView from './views/editor.js?v=20261023t';
+import * as settingsView from './views/settings.js?v=20261023t';
+import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023t';
 
 loadState();
 
@@ -77,7 +77,7 @@ function appendLog(msg) {
 
 async function runParse(file, useSimulated) {
   try {
-    appendLog(`🔖 程序版本：v20261023s`);
+    appendLog(`🔖 程序版本：v20261023t`);
     appendLog(`✓ 已接收文件：${state.draftFileName}`);
     if (useSimulated) {
       await delay(600);

@@ -1,4 +1,4 @@
-import { state } from '../store.js?v=20261023s';
+import { state } from '../store.js?v=20261023t';
 
 export function render() {
   if (state.authMode === 'register') return register();

@@ -378,11 +378,15 @@ function parseExperiences(text) {
       end = /至今|现在/.test(endRaw) ? '至今' : `${endRaw}-${String(periodMatch[4] || '01').padStart(2, '0')}`;
     } else {
       // 只有开始时间：年份[.年/-]月? 后面不跟 [-~至到]
-      const single = line.match(/((?:19|20)\d{2})[年.\-]?\s*(\d{1,2})?月?(?!\s*[-~至到])/);
-      if (single) {
-        start = `${single[1]}-${String(single[2] || '01').padStart(2, '0')}`;
-        end = '';
-        periodMatch = single;
+      // 跳过含手机号/邮箱的基本信息行（如「2002年3月」是出生日期）
+      const hasContact = /1[3-9]\d{9}|[\w.+-]+@[\w-]+\.[\w-]+/.test(line);
+      if (!hasContact) {
+        const single = line.match(/((?:19|20)\d{2})[年.\-]?\s*(\d{1,2})?月?(?!\s*[-~至到])/);
+        if (single) {
+          start = `${single[1]}-${String(single[2] || '01').padStart(2, '0')}`;
+          end = '';
+          periodMatch = single;
+        }
       }
     }
     if (periodMatch) {
@@ -415,8 +419,8 @@ function parseExperiences(text) {
         .slice(0, 40);
       const descLines = [];
       let j = i + 1;
-      // 遇到以年份开头的行 → 认为是下一条经历，停止收集描述
-      while (j < lines.length && !/^(?:19|20)\d{2}/.test(lines[j])) {
+      // 停止收集描述的条件：遇到以年份开头的行（下一条经历）或段落标题行（下一段落）
+      while (j < lines.length && !/^(?:19|20)\d{2}/.test(lines[j]) && !ALL_SECTION_RE.test(lines[j])) {
         descLines.push(lines[j]);
         j += 1;
       }
