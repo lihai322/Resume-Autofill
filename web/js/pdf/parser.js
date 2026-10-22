@@ -172,11 +172,13 @@ function parseEducationEntry(text) {
   edu.school = school;
   // 专业：优先 "专业：xxx"，其次从非学校名的关键词里找
   // 注意：「专业绩点」里的「专业」不是标签，必须后跟分隔符（：: 空格）才算
-  const labeledMajor = pick(/(?:专业|主修方向|专业方向)[：:\s]+([\u4e00-\u9fa5A-Za-z]{2,20})/, text);
+  // 提取专业前先移除「主修课程：xxx」段，避免课程名（如环境化学）被误当专业
+  const textForMajor = text.replace(/(?:主修课程|核心课程|主要课程|所学课程|专业课程)[：:\s]*[\u4e00-\u9fa5A-Za-z0-9、,，\s]{2,120}/, '');
+  const labeledMajor = pick(/(?:专业|主修方向|专业方向)[：:\s]+([\u4e00-\u9fa5A-Za-z]{2,20})/, textForMajor);
   if (labeledMajor) {
     edu.major = labeledMajor;
   } else {
-    const majorCandidates = text.match(/[\u4e00-\u9fa5]{1,12}(学|工程|管理|经济|科学|技术|设计|医学|法学|文学|语)/g) || [];
+    const majorCandidates = textForMajor.match(/[\u4e00-\u9fa5]{1,12}(学|工程|管理|经济|科学|技术|设计|医学|法学|文学|语)/g) || [];
     edu.major = majorCandidates.find((m) => {
       // 排除学校名片段
       if (edu.school && m.includes(edu.school.slice(0, 4))) return false;
@@ -247,14 +249,17 @@ function parseEducation(text) {
   let current = [];
   const DEGREE_RE = /(博士|硕士|本科|大专|专科|学士)/;
   const SCHOOL_RE = /(大学(?!生)|学院(?!路|街)|学校|University|College)/;
-  const YEAR_RE = /(?:19|20)\d{2}\s*[-~至到]\s*(?:19|20)\d{2}/;
+  const YEAR_RE = /(?:19|20)\d{2}[年.\-/]?\s*\d{0,2}月?\s*[-~至到]/;
   // 教育段内的子标签行，不应另起新条目（应并入当前条目）
   const SUB_LABEL_RE = /^(主修课程|核心课程|主要课程|所学课程|专业课程|学习成绩|综合表现|获奖|荣誉|技能|证书|社团|实践经历|工作经历|项目经历|自我评价|求职意向|个人简介|兴趣爱好|通讯地址|联系电话|电子邮箱|所在城市|出生年月|政治面貌|民族|性别|籍贯|健康状况|婚姻状况)/;
 
   for (const line of lines) {
     const hasDegree = DEGREE_RE.test(line);
     const hasSchool = SCHOOL_RE.test(line);
-    const isSubLabel = SUB_LABEL_RE.test(line);
+    const hasYear = YEAR_RE.test(line);
+    // 子标签行（主修课程/学习成绩等）通常并入当前条目，
+    // 但若该行同时包含新的时间段 + 学历词，说明是下一条教育经历，不应并入
+    const isSubLabel = SUB_LABEL_RE.test(line) && !(hasYear && hasDegree);
     const currentHasDegree = current.some((l) => DEGREE_RE.test(l));
     const currentHasSchool = current.some((l) => SCHOOL_RE.test(l));
     // 新条目条件：当前条目已有学历，且新行含学历词 或 新行含学校名（当前已有学校）
