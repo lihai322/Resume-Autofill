@@ -50,9 +50,19 @@
     <div class="card">
       <div class="group-title">档案来源</div>
       <div class="row">
-        <div><div class="t">默认档案</div><div class="d" id="profileName">未设置</div></div>
-        <button class="btn" id="btnReload">重新读取</button>
+        <div><div class="t">当前档案</div><div class="d" id="profileName">未设置（使用内置示例）</div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" id="btnImport">导入 JSON</button>
+          <button class="btn" id="btnReload">重新读取</button>
+        </div>
       </div>
+      <input type="file" id="fileImport" accept=".json" style="display:none">
+      <div class="row" style="border-bottom:none">
+        <div style="font-size:12px;color:var(--text-3);line-height:1.6">
+          在 Web 控制台导出档案 JSON 后，点击「导入 JSON」上传。档案仅保存在本机浏览器，不会上传任何服务器。
+        </div>
+      </div>
+      <div class="status" id="importStatus" style="display:none;margin:0 0 12px"></div>
     </div>
 
     <div class="card">
