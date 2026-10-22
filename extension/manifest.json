@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "简历速填",
+  "version": "0.1.0",
+  "description": "读取一份结构化简历档案，在招聘官网表单中映射并一键预填，由用户人工检查后提交。",
+  "permissions": ["activeTab", "storage", "scripting"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "简历速填"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+R" },
+      "description": "打开简历速填弹窗"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

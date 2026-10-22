@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>简历速填 · 选项</title>
+  <style>
+    :root{--border:#e5e5e5;--surface-2:#fafafa;--text:#1a1a1a;--text-2:#666;--text-3:#999;--accent:#1a1a1a;--success:#10b981}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;background:#f5f5f5;color:var(--text);font-size:14px;padding:32px}
+    .wrap{max-width:620px;margin:0 auto}
+    h1{font-size:20px;margin-bottom:6px}
+    .sub{color:var(--text-2);font-size:13px;margin-bottom:24px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:8px 20px;margin-bottom:20px}
+    .group-title{font-size:13px;font-weight:600;color:var(--text-2);margin:16px 0 8px}
+    .row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);gap:16px}
+    .row:last-child{border-bottom:none}
+    .row .t{font-weight:500}
+    .row .d{font-size:12px;color:var(--text-3);margin-top:2px}
+    .toggle{width:42px;height:24px;border-radius:12px;background:var(--border);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+    .toggle::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+    .toggle.on{background:var(--accent)}
+    .toggle.on::after{transform:translateX(18px)}
+    .btn{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:13px;cursor:pointer}
+    .btn:hover{background:var(--surface-2)}
+    .btn-danger{color:#ef4444;border-color:var(--border)}
+    .btn-danger:hover{border-color:#ef4444;background:#fef2f2}
+    .status{font-size:12px;color:var(--success);margin-left:8px}
+    input[type=text]{width:220px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px}
+    .hint{font-size:12px;color:var(--text-3);margin-top:16px;line-height:1.6}
+    kbd{background:#f4f4f5;border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>简历速填 · 扩展设置</h1>
+    <p class="sub">所有设置仅保存在本机，不上传云端</p>
+
+    <div class="card">
+      <div class="group-title">填充行为</div>
+      <div class="row">
+        <div><div class="t">记住映射</div><div class="d">按官网域名保存映射关系，再次访问自动复用</div></div>
+        <div class="toggle" id="tgMemory" role="switch"></div>
+      </div>
+      <div class="row">
+        <div><div class="t">LLM 语义兜底</div><div class="d">低置信度字段使用 LLM 识别，可整体关闭</div></div>
+        <div class="toggle" id="tgLlm" role="switch"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="group-title">档案来源</div>
+      <div class="row">
+        <div><div class="t">默认档案</div><div class="d" id="profileName">未设置</div></div>
+        <button class="btn" id="btnReload">重新读取</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="group-title">数据与隐私</div>
+      <div class="row">
+        <div><div class="t">清除映射记忆</div><div class="d">删除本机保存的全部官网映射记录</div></div>
+        <button class="btn btn-danger" id="btnClear">清除</button>
+      </div>
+    </div>
+
+    <div class="hint">
+      <div>快捷键：打开扩展弹窗 <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd>（可在 chrome://extensions/shortcuts 修改）</div>
+      <div style="margin-top:6px">简历明文只保存在本地，扩展不会自动提交任何官网表单。</div>
+    </div>
+  </div>
+  <script src="./options.js"></script>
+</body>
+</html>
