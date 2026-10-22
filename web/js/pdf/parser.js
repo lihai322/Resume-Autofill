@@ -161,7 +161,7 @@ function parseEducationEntry(text) {
   // 学位：带学科前缀，如「工学学士」「理学硕士」「管理学博士」
   edu.academic_degree = pick(/([\u4e00-\u9fa5]{1,6}(?:学士|硕士|博士))/, text)
     || pick(/(?:学位)[：:\s]*([\u4e00-\u9fa5]{2,10})/, text);
-  edu.school = pick(/([\u4e00-\u9fa5A-Za-z]{2,20}(大学|学院|学校|University|College))/, text);
+  edu.school = pick(/([\u4e00-\u9fa5A-Za-z]{2,20}(?:大学|学院|学校|University|College)(?:[（(][^）)]{1,20}[)）])*)/, text);
   // 专业：优先 "专业：xxx"，其次从非学校名的关键词里找
   const labeledMajor = pick(/(?:专业|主修方向|专业方向)[：:\s]*([\u4e00-\u9fa5A-Za-z]{2,20})/, text);
   if (labeledMajor) {
@@ -174,6 +174,8 @@ function parseEducationEntry(text) {
       // 排除学位相关片段（如「工学学」来自「工学学士」）
       if (edu.academic_degree && edu.academic_degree.includes(m)) return false;
       if (edu.degree && m.includes(edu.degree)) return false;
+      // 排除通用词（大学/学院/学校本身不应作为专业）
+      if (/^(大学|学院|学校|工程|管理|科学|技术|设计|医学|法学|文学|语)$/.test(m)) return false;
       return true;
     }) || '';
   }
@@ -353,17 +355,21 @@ function parseHonors(text) {
 
 function parseLanguages(text) {
   const langs = [];
-  // 四六级：兼容 CET-4 / CET6 / 英语四级 / 大学英语六级 / 四级 450分 等写法
-  // 先匹配英文写法，再匹配中文写法
-  let cet = text.match(/CET-?([46])\s*(?:[:：]?\s*(\d{2,3})(?:\s*分)?)?/i);
-  if (!cet) {
-    // 中文写法：(大学)?英语?四级/六级 + 可选成绩
-    cet = text.match(/(?:大学\s*)?(?:英语)?\s*(?:CET)?\s*([四64六])(?:级)?\s*(?:[:：]?\s*(\d{2,3})(?:\s*分)?)?/);
-  }
-  if (cet) {
-    const rawLevel = cet[1];
+  const seen = new Set();
+  // 四六级级别识别：
+  //   CET-4/CET6 / 英语四级 / 大学英语六级 / 英语6级 / 四级 / 6级
+  // 注意：数字 4/6 必须有 CET/英语前缀 或 级 后缀，避免匹配到年份里的数字
+  const levelRe = /(?:CET-?([46])|(?:大学\s*)?英语\s*([46四6六])\s*级?|([四64六])级)/g;
+  let m;
+  while ((m = levelRe.exec(text)) !== null) {
+    const rawLevel = m[1] || m[2] || m[3];
     const levelNum = /[4四]/.test(rawLevel) ? '4' : '6';
-    const score = cet[2] || '';
+    if (seen.has(levelNum)) continue;
+    seen.add(levelNum);
+    // 在匹配位置之后 40 字符范围内找成绩（兼容全角逗号、空格、括号、"分"字）
+    const after = text.slice(m.index + m[0].length, m.index + m[0].length + 40);
+    const scoreMatch = after.match(/(\d{2,3})\s*分?/);
+    const score = scoreMatch ? scoreMatch[1] : '';
     const proficiency = score ? (parseInt(score, 10) >= 550 ? '熟练' : '良好') : '';
     langs.push({ lang: '英语', level: `CET-${levelNum}`, proficiency, score });
   }
