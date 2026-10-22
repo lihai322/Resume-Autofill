@@ -90,7 +90,7 @@ function renderPreview() {
         ${field('学历', `education.${i}.degree`, ed.degree)}
         ${field('学位', `education.${i}.academic_degree`, ed.academic_degree)}
         ${field('绩点', `education.${i}.gpa`, ed.gpa)}
-        ${field('主修科目', `education.${i}.major`, ed.major)}
+        ${field('专业', `education.${i}.major`, ed.major)}
       </div>
       ${field('主修课程', `education.${i}.courses`, ed.courses || '')}
     </div>`).join('');

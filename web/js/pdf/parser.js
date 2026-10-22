@@ -166,7 +166,7 @@ function parseEducation(text) {
   if (labeledMajor) {
     edu.major = labeledMajor;
   } else {
-    const majorCandidates = text.match(/[\u4e00-\u9fa5]{2,12}(学|工程|管理|经济|科学|技术|设计|医学|法学|文学)/g) || [];
+    const majorCandidates = text.match(/[\u4e00-\u9fa5]{1,12}(学|工程|管理|经济|科学|技术|设计|医学|法学|文学|语)/g) || [];
     edu.major = majorCandidates.find((m) => {
       // 排除学校名片段
       if (edu.school && m.includes(edu.school.slice(0, 4))) return false;
@@ -183,7 +183,35 @@ function parseEducation(text) {
   edu.gpa = pick(`(?:${gpaLabels})[:：\\s]*([\\d.]+(?:\\s*\\/\\s*[\\d.]+)?)`, text);
   const period = text.match(/((?:19|20)\d{2})\s*[-~至到]\s*((?:19|20)\d{2})/);
   if (period) edu.period = `${period[1]}-${period[2]}`;
+  // 若简历未写明学位学科门类，则根据专业 + 学历自动推断（如「计算机科学与技术 + 本科 → 工学学士」）
+  if (!edu.academic_degree && edu.major && edu.degree) {
+    const discipline = inferDiscipline(edu.major);
+    const suffix = { '本科': '学士', '学士': '学士', '硕士': '硕士', '博士': '博士' }[edu.degree] || '';
+    if (discipline && suffix) edu.academic_degree = `${discipline}${suffix}`;
+  }
   return edu;
+}
+
+// 根据专业关键词推断学位学科门类（工学/理学/农学/医学/文学/法学/经济学/管理学/教育学/艺术学/历史学）
+const DISCIPLINE_RULES = [
+  { name: '工学', keywords: ['计算机', '软件', '电子', '通信', '信息工程', '机械', '土木', '建筑', '自动化', '材料', '化工', '化学工程', '能源', '航空', '船舶', '兵器', '核工程', '环境工程', '生物医学工程', '工业工程', '网络工程', '物联网', '人工智能', '数据科学', '电气工程', '车辆工程', '测绘', '地质工程', '采矿', '石油', '纺织', '轻工', '印刷', '安全工程'] },
+  { name: '理学', keywords: ['数学', '物理', '化学', '生物科学', '生物技术', '地理科学', '地质学', '大气', '海洋', '地球物理', '心理学', '统计学', '应用物理', '应用化学', '生物信息'] },
+  { name: '农学', keywords: ['农学', '园艺', '植物保护', '动物科学', '动物医学', '林学', '水产', '草业', '农业资源', '种子科学'] },
+  { name: '医学', keywords: ['临床医学', '口腔医学', '基础医学', '预防医学', '中医学', '药学', '护理学', '公共卫生', '医学影像', '医学检验', '康复治疗', '麻醉学', '儿科学', '眼视光'] },
+  { name: '文学', keywords: ['汉语言', '中文', '外语', '英语', '日语', '俄语', '德语', '法语', '西班牙语', '新闻', '传播', '翻译', '广告学', '编辑出版'] },
+  { name: '法学', keywords: ['法学', '法律', '政治学', '社会学', '公安', '马克思主义', '思想政治', '外交学', '社会工作'] },
+  { name: '经济学', keywords: ['经济学', '金融学', '金融工程', '会计学', '会计', '国际贸易', '财政', '税务', '保险', '投资学', '经济统计'] },
+  { name: '管理学', keywords: ['工商管理', '行政管理', '人力资源', '市场营销', '旅游管理', '物流管理', '信息管理', '工程管理', '公共事业', '财务管理', '审计', '电子商务', '管理科学'] },
+  { name: '教育学', keywords: ['教育学', '学前教育', '小学教育', '体育教育', '运动训练', '特殊教育', '教育技术'] },
+  { name: '艺术学', keywords: ['艺术', '音乐', '美术', '设计', '舞蹈', '戏剧', '影视', '动画', '书法', '摄影', '播音', '表演'] },
+  { name: '历史学', keywords: ['历史', '考古', '文物', '博物馆'] }
+];
+
+function inferDiscipline(major) {
+  for (const rule of DISCIPLINE_RULES) {
+    if (rule.keywords.some((kw) => major.includes(kw))) return rule.name;
+  }
+  return '';
 }
 
 const EDU_HINT = /(大学|学院|学校|University|College|教育|学历|专业|主修|GPA|绩点)/;
@@ -272,11 +300,19 @@ function parseHonors(text) {
 
 function parseLanguages(text) {
   const langs = [];
-  const cet = text.match(/CET-?([46])\s*(?:[:：]?\s*(\d{2,3}))?/);
+  // 四六级：兼容 CET-4 / CET6 / 英语四级 / 大学英语六级 / 四级 450分 等写法
+  // 先匹配英文写法，再匹配中文写法
+  let cet = text.match(/CET-?([46])\s*(?:[:：]?\s*(\d{2,3})(?:\s*分)?)?/i);
+  if (!cet) {
+    // 中文写法：(大学)?英语?四级/六级 + 可选成绩
+    cet = text.match(/(?:大学\s*)?(?:英语)?\s*(?:CET)?\s*([四64六])(?:级)?\s*(?:[:：]?\s*(\d{2,3})(?:\s*分)?)?/);
+  }
   if (cet) {
+    const rawLevel = cet[1];
+    const levelNum = /[4四]/.test(rawLevel) ? '4' : '6';
     const score = cet[2] || '';
     const proficiency = score ? (parseInt(score, 10) >= 550 ? '熟练' : '良好') : '';
-    langs.push({ lang: '英语', level: `CET-${cet[1]}`, proficiency, score });
+    langs.push({ lang: '英语', level: `CET-${levelNum}`, proficiency, score });
   }
   const toefl = text.match(/(?:TOEFL|托福)\s*[:：]?\s*(\d{2,3})/i);
   if (toefl) langs.push({ lang: '英语', level: 'TOEFL', proficiency: '', score: toefl[1] });

@@ -92,7 +92,7 @@ function educationSection(p) {
         ${input('学历', `education.${i}.degree`, ed.degree)}
         ${input('学位', `education.${i}.academic_degree`, ed.academic_degree)}
         ${input('绩点', `education.${i}.gpa`, ed.gpa)}
-        ${input('主修科目', `education.${i}.major`, ed.major)}
+        ${input('专业', `education.${i}.major`, ed.major)}
       </div>
       <div class="field"><label>主修课程</label>
         <input data-path="education.${i}.courses" value="${escapeHtml(ed.courses || '')}" placeholder="如：数据结构、操作系统、计算机网络"></div>
