@@ -1,15 +1,15 @@
 import {
   state, loadState, saveSession, saveProfiles, saveSettings,
   getProfile, addProfile, resetAll
-} from './store.js?v=20261023l';
-import { seedProfiles } from './seed.js?v=20261023l';
-import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023l';
-import * as authView from './views/auth.js?v=20261023l';
-import * as profilesView from './views/profiles.js?v=20261023l';
-import * as importView from './views/import.js?v=20261023l';
-import * as editorView from './views/editor.js?v=20261023l';
-import * as settingsView from './views/settings.js?v=20261023l';
-import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023l';
+} from './store.js?v=20261023m';
+import { seedProfiles } from './seed.js?v=20261023m';
+import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023m';
+import * as authView from './views/auth.js?v=20261023m';
+import * as profilesView from './views/profiles.js?v=20261023m';
+import * as importView from './views/import.js?v=20261023m';
+import * as editorView from './views/editor.js?v=20261023m';
+import * as settingsView from './views/settings.js?v=20261023m';
+import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023m';
 
 loadState();
 
@@ -92,21 +92,38 @@ async function runParse(file, useSimulated) {
         appendLog('💡 文件可能已损坏或被加密');
         return;
       }
-      if (text.trim().length < 50) {
-        appendLog('⚠ 文本层几乎为空，疑似扫描件，启动 OCR（约 10-30 秒）…');
+      // 文本层几乎为空 → 直接 OCR
+      let needOcr = text.trim().length < 50;
+      let parsed = parseResumeText(text);
+      // 文本层内容过少，或教育经历缺关键字段（学历/专业）→ 说明 PDF 文本层不完整，用 OCR 兜底
+      const edu0 = parsed.education?.[0];
+      const eduIncomplete = !edu0 || !edu0.degree || !edu0.major;
+      if (text.trim().length < 300 && eduIncomplete) needOcr = true;
+      if (needOcr) {
+        appendLog('⚠ 文本层内容不完整，启动 OCR 补充识别（约 10-30 秒）…');
         try {
-          text = await ocrImage(file);
-          appendLog('✓ OCR 完成');
+          const ocrText = await ocrImage(file);
+          appendLog(`✓ OCR 完成，识别 ${ocrText.length} 字符`);
+          const ocrParsed = parseResumeText(ocrText);
+          // 取教育字段更完整的结果
+          const score = (p) => {
+            const e = p.education?.[0] || {};
+            return [e.school, e.major, e.degree, e.gpa, e.courses].filter(Boolean).length;
+          };
+          if (score(ocrParsed) > score(parsed)) {
+            parsed = ocrParsed;
+            text = ocrText;
+            appendLog('✓ 采用 OCR 结果（字段更完整）');
+          } else {
+            appendLog('✓ 保留文本层结果（OCR 未更优）');
+          }
         } catch (e) {
           appendLog(`❌ OCR 失败：${e.message || e}`);
-          appendLog('💡 请使用文本型 PDF，或改用演示模式');
-          return;
         }
       }
       appendLog(`✓ 提取文本 ${text.length} 字符`);
       const preview = text.replace(/\s+/g, ' ').slice(0, 800);
       appendLog(`<div style="margin-top:6px;padding:8px;background:#f5f5f5;border-radius:6px;font-size:11px;color:#555;line-height:1.6;word-break:break-all">📄 原文片段：${escapeHtml(preview)}…</div>`);
-      const parsed = parseResumeText(text);
       appendLog(`✓ 识别到教育经历 ${parsed.education?.length || 0} 条、项目经历 ${parsed.experiences?.length || 0} 条`);
       state.draft = mergeDraft(parsed);
       const low = lowConfidenceFields(state.draft);
