@@ -1,4 +1,4 @@
-import { seedProfiles } from './seed.js?v=20261023';
+import { seedProfiles } from './seed.js?v=20261023b';
 
 const KEY = {
   profiles: 'rqf_profiles',
