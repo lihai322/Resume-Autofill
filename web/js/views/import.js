@@ -46,8 +46,11 @@ function renderUpload() {
         <span class="chip">LLM 兜底（可关闭）</span>
       </div>
     </div>
+    <div style="text-align:center;margin-top:16px">
+      <button class="btn btn-ghost btn-sm" onclick="A.simulateParse()">没有 PDF？使用演示数据</button>
+    </div>
     <p class="text-xs text-3 mt-16" style="text-align:center">
-      隐私：解析服务不留存原文；LLM 兜底前自动脱敏
+      隐私：解析全程在浏览器本地完成，原文不上传任何服务器
     </p>`;
 }
 

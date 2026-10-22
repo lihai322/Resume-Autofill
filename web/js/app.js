@@ -9,6 +9,7 @@ import * as profilesView from './views/profiles.js';
 import * as importView from './views/import.js';
 import * as editorView from './views/editor.js';
 import * as settingsView from './views/settings.js';
+import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js';
 
 loadState();
 
@@ -41,10 +42,80 @@ function render() {
       <button class="btn btn-ghost btn-sm" onclick="A.go('settings')">设置</button>
       <button class="btn btn-ghost btn-sm" onclick="A.lock()">锁定</button>
     </div>`;
+}
 
-  if (state.view === 'import' && state.wizardStep === 1 && !state._parseStarted) {
-    state._parseStarted = true;
-    importView.logParsing();
+/* ---------------- PDF 解析 ---------------- */
+function delay(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+function mergeDraft(parsed) {
+  const base = structuredClone(seedProfiles[0]);
+  const draft = {
+    ...base,
+    id: newId(),
+    name: `${parsed.full_name || '新'}的简历`,
+    target: base.target,
+    updated_at: today(),
+    full_name: parsed.full_name || base.full_name,
+    phone: parsed.phone || base.phone,
+    email: parsed.email || base.email,
+    birth_date: parsed.birth_date || base.birth_date,
+    location: parsed.location || base.location,
+    education: parsed.education?.length ? parsed.education : base.education,
+    experiences: parsed.experiences?.length ? parsed.experiences : base.experiences,
+    honors: parsed.honors?.length ? parsed.honors : base.honors,
+    languages: parsed.languages?.length ? parsed.languages : base.languages,
+    self_evaluation: parsed.self_evaluation || base.self_evaluation,
+    custom_fields: parsed.custom_fields || base.custom_fields
+  };
+  return draft;
+}
+
+function appendLog(msg) {
+  const el = document.getElementById('parseLog');
+  if (el) el.insertAdjacentHTML('beforeend', `<div style="padding:3px 0">${msg}</div>`);
+}
+
+async function runParse(file, useSimulated) {
+  try {
+    appendLog(`✓ 已接收文件：${state.draftFileName}`);
+    if (useSimulated) {
+      await delay(600);
+      appendLog('⚙ 演示模式：使用内置示例档案');
+      state.draft = mergeDraft({});
+    } else {
+      appendLog('⏳ 加载 PDF 解析引擎（首次较慢）…');
+      let text;
+      try {
+        text = await extractText(file, (page, total) => appendLog(`✓ 解析第 ${page}/${total} 页`));
+      } catch (e) {
+        appendLog(`❌ PDF 解析失败：${e.message || e}`);
+        appendLog('💡 文件可能已损坏或被加密');
+        return;
+      }
+      if (text.trim().length < 50) {
+        appendLog('⚠ 文本层几乎为空，疑似扫描件，启动 OCR（约 10-30 秒）…');
+        try {
+          text = await ocrImage(file);
+          appendLog('✓ OCR 完成');
+        } catch (e) {
+          appendLog(`❌ OCR 失败：${e.message || e}`);
+          appendLog('💡 请使用文本型 PDF，或改用演示模式');
+          return;
+        }
+      }
+      appendLog(`✓ 提取文本 ${text.length} 字符`);
+      const parsed = parseResumeText(text);
+      state.draft = mergeDraft(parsed);
+      const low = lowConfidenceFields(state.draft);
+      if (low.length) appendLog(`⚠ 低置信度字段：${low.join('、')}`);
+    }
+    appendLog('⚙ 准备预览确认…');
+    await delay(300);
+    state.wizardStep = 2;
+    render();
+  } catch (err) {
+    console.error(err);
+    appendLog(`❌ 出错：${err.message || err}`);
   }
 }
 
@@ -154,11 +225,13 @@ const A = {
     render();
   },
   simulateParse() {
+    state.draftFileName = 'resume.pdf';
     state.wizardStep = 1;
     state._parseStarted = false;
     render();
+    runParse(new File([], 'resume.pdf'), true);
   },
-  handleFile(file) {
+  async handleFile(file) {
     if (!file) return;
     if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
       toast('请选择 PDF 格式的简历');
@@ -168,6 +241,7 @@ const A = {
     state.wizardStep = 1;
     state._parseStarted = false;
     render();
+    await runParse(file, false);
   },
   handleDrop(event) {
     event.preventDefault();
