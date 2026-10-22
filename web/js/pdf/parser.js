@@ -309,11 +309,13 @@ const EDU_HINT = /(大学|学院|学校|University|College|教育|学历|专业|
 // 段落标题：用于区分教育段 / 项目段 / 实践段
 const EDU_SECTION_RE = /(教育背景|教育经历|教育情况|学历背景|学习经历|学习情况)/;
 const PRACTICE_SECTION_RE = /(实践经历|实践经验|实习经历|实习经验|工作经历|工作经验|校园经历|校园实践|社会实践|学生工作|志愿服务|社团活动|兼职经历|课外活动)/;
-const PROJECT_SECTION_RE = /(项目经历|项目经验|科研项目|项目背景|项目介绍|学术成果)/;
+const PROJECT_SECTION_RE = /(项目经历|项目经验|科研项目|科研经历|项目背景|项目介绍|学术成果|研究经历|学术经历)/;
 
 // 所有已知段落标题（用于截取某一段落的内容范围）
+// 注意：独立关键词（荣誉/奖励/语言/技能/证书等）必须在行首才算段落标题，
+// 否则内容里的「奖学金荣誉」「操作技能」会被误判为段落边界
 const ALL_SECTION_RE = new RegExp(
-  `(${EDU_SECTION_RE.source}|${PRACTICE_SECTION_RE.source}|${PROJECT_SECTION_RE.source}|荣誉|奖励|语言|技能|自评|自我评价|个人评价|兴趣|证书|资格)`
+  `(${EDU_SECTION_RE.source}|${PRACTICE_SECTION_RE.source}|${PROJECT_SECTION_RE.source}|自我评价|个人评价|兴趣爱好|^(荣誉|奖励|语言|技能|证书|资格|自评))`
 );
 
 // 从全文中截取指定标题段落的内容（从该标题到下一个段落标题之间）
@@ -324,7 +326,6 @@ function extractSection(text, headerRe) {
     if (headerRe.test(lines[i])) { start = i; break; }
   }
   if (start === -1) return '';
-  // 若标题行本身包含教育内容（年份/学校），则从标题行开始；否则从下一行开始
   const headerLine = lines[start];
   const hasContentInHeader = /(?:19|20)\d{2}|大学|学院|学校|University|College/.test(headerLine.replace(headerRe, ''));
   if (!hasContentInHeader) start += 1;
@@ -332,7 +333,8 @@ function extractSection(text, headerRe) {
   for (let i = start; i < lines.length; i += 1) {
     if (ALL_SECTION_RE.test(lines[i]) && !headerRe.test(lines[i])) { end = i; break; }
   }
-  return lines.slice(start, end).join('\n');
+  const result = lines.slice(start, end).join('\n');
+  return result;
 }
 
 // 识别一段时间段，用于经历切分
@@ -349,8 +351,10 @@ function parseExperiences(text) {
     if (EDU_SECTION_RE.test(lines[k])) section = 'edu';
     else if (PRACTICE_SECTION_RE.test(lines[k])) section = 'practice';
     else if (PROJECT_SECTION_RE.test(lines[k])) section = 'project';
-    // 无教育标题时兜底：含时间段 + 学历词/学校词的行视为教育行
-    if (section !== 'edu' && HAS_PERIOD.test(lines[k]) && /(大学|学院|学校|硕士|本科|博士|学士|大专|专科|University|College)/.test(lines[k])) {
+    // 无教育标题时兜底：含时间段 + 学历词/学校词的行视为教育行。
+    // 仅在未进入任何已知段落标题（section === ''）时生效，
+    // 避免覆盖「实践经历」段内的「XX大学记者团」等合法实践条目。
+    if (section === '' && HAS_PERIOD.test(lines[k]) && /(大学|学院|学校|硕士|本科|博士|学士|大专|专科|University|College)/.test(lines[k])) {
       lineSection[k] = 'edu';
       continue;
     }
@@ -399,8 +403,11 @@ function parseExperiences(text) {
         j += 1;
       }
       const desc = descLines.join('；').slice(0, 200);
-      // 教育内容过滤：名称或描述含学校/学历/课程等关键词 → 跳过，不误判为经历
-      if (name && !EDU_HINT.test(name) && !EDU_HINT.test(desc)) {
+      // 教育内容过滤：仅对未分类段落（无段落标题）生效。
+      // 已在「项目经历」「实践经历」段内的条目不过滤——实践经历常含学校名（如「XX大学记者团」），不应被误删。
+      const isClassified = lineSection[i] === 'project' || lineSection[i] === 'practice';
+      const hitEduHint = EDU_HINT.test(name) || EDU_HINT.test(desc);
+      if (name && (isClassified || !hitEduHint)) {
         // 类型判定：优先按段落标题，其次按关键词兜底
         let type;
         if (lineSection[i] === 'practice') type = '实践';
@@ -466,7 +473,24 @@ function parseSelfEvaluation(text) {
   return blocks.length ? blocks[blocks.length - 1].replace(/\s+/g, ' ').trim().slice(0, 200) : '';
 }
 
-export function parseResumeText(text) {
+// 文本结构归一化：PDF 提取可能把全文压成一行，导致段落标题/时间段无法按行切分。
+// 在段落标题和时间段前插入换行符，让 extractSection / parseEducation / parseExperiences 能正确分段。
+function normalizeStructure(text) {
+  // 1) 段落标题前插入换行（避免标题被挤在上一行末尾）
+  const headers = ['教育经历', '教育背景', '科研经历', '项目经历', '实践经历', '工作经历', '实习经历', '技能证书', '荣誉奖励', '语言能力', '自我评价', '个人简介', '基本信息', '联系方式'];
+  let out = text;
+  for (const h of headers) {
+    const re = new RegExp(`([^\\n])\\s*(${h})\\s*`, 'g');
+    out = out.replace(re, '$1\n$2\n');
+  }
+  // 2) 时间段前插入换行（如 "研究。2019.09-2023.06" → "研究。\n2019.09-2023.06"）
+  //    只在时间段前一个字符不是换行时插入，且时间段后通常跟学校名
+  out = out.replace(/([^\n])(?=(?:19|20)\d{2}[年.\-]\s*\d{0,2}月?\s*[-~至到])/g, '$1\n');
+  return out;
+}
+
+export function parseResumeText(rawText) {
+  const text = normalizeStructure(rawText);
   const profile = {
     full_name: parseName(text),
     phone: parsePhone(text),
