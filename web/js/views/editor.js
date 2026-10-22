@@ -1,6 +1,6 @@
-import { getProfile } from '../store.js?v=20261023t';
-import { COLORS } from '../seed.js?v=20261023t';
-import { escapeHtml, ageFrom, hexA } from '../utils.js?v=20261023t';
+import { getProfile } from '../store.js?v=20261023u';
+import { COLORS } from '../seed.js?v=20261023u';
+import { escapeHtml, ageFrom, hexA } from '../utils.js?v=20261023u';
 
 const NAV = [
   { k: 'basic', icon: '👤', label: '基本信息' },
@@ -30,6 +30,7 @@ export function render() {
       </div>
       <div class="actions">
         <button class="btn btn-ghost" onclick="A.go('list')">← 返回</button>
+        <button class="btn btn-ghost" onclick="A.exportProfile()">导出 JSON</button>
         <button class="btn btn-primary" onclick="A.saveProfile()">保存</button>
       </div>
     </div>

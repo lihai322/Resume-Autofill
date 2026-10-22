@@ -1,15 +1,15 @@
 import {
   state, loadState, saveSession, saveProfiles, saveSettings,
   getProfile, addProfile, resetAll
-} from './store.js?v=20261023t';
-import { seedProfiles } from './seed.js?v=20261023t';
-import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023t';
-import * as authView from './views/auth.js?v=20261023t';
-import * as profilesView from './views/profiles.js?v=20261023t';
-import * as importView from './views/import.js?v=20261023t';
-import * as editorView from './views/editor.js?v=20261023t';
-import * as settingsView from './views/settings.js?v=20261023t';
-import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023t';
+} from './store.js?v=20261023u';
+import { seedProfiles } from './seed.js?v=20261023u';
+import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023u';
+import * as authView from './views/auth.js?v=20261023u';
+import * as profilesView from './views/profiles.js?v=20261023u';
+import * as importView from './views/import.js?v=20261023u';
+import * as editorView from './views/editor.js?v=20261023u';
+import * as settingsView from './views/settings.js?v=20261023u';
+import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023u';
 
 loadState();
 
@@ -77,7 +77,7 @@ function appendLog(msg) {
 
 async function runParse(file, useSimulated) {
   try {
-    appendLog(`🔖 程序版本：v20261023t`);
+    appendLog(`🔖 程序版本：v20261023u`);
     appendLog(`✓ 已接收文件：${state.draftFileName}`);
     if (useSimulated) {
       await delay(600);
@@ -210,6 +210,14 @@ const A = {
     saveProfiles();
     toast('已保存');
     render();
+  },
+  exportProfile() {
+    saveCurrentForm();
+    const p = getProfile();
+    if (!p) { toast('没有可导出的档案'); return; }
+    const safeName = (p.full_name || p.name || 'resume').replace(/[\\/:*?"<>|]/g, '_');
+    downloadJson(`简历档案-${safeName}.json`, p);
+    toast('已导出 JSON，可在扩展选项页导入');
   },
   setColor(color) {
     saveCurrentForm();
