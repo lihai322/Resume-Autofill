@@ -257,14 +257,13 @@ function parseEducation(text) {
     const hasDegree = DEGREE_RE.test(line);
     const hasSchool = SCHOOL_RE.test(line);
     const hasYear = YEAR_RE.test(line);
-    // 子标签行（主修课程/学习成绩等）通常并入当前条目，
-    // 但若该行同时包含新的时间段 + 学历词，说明是下一条教育经历，不应并入
-    const isSubLabel = SUB_LABEL_RE.test(line) && !(hasYear && hasDegree);
-    const currentHasDegree = current.some((l) => DEGREE_RE.test(l));
-    const currentHasSchool = current.some((l) => SCHOOL_RE.test(l));
-    // 新条目条件：当前条目已有学历，且新行含学历词 或 新行含学校名（当前已有学校）
     // 子标签行（主修课程/学习成绩/综合表现等）不另起条目，直接并入当前
-    const isNewEntry = !isSubLabel && currentHasDegree && (hasDegree || (hasSchool && currentHasSchool));
+    // 但若子标签行同时含新的时间段 + 学历词/学校词，说明是下一条教育经历
+    const isSubLabel = SUB_LABEL_RE.test(line) && !(hasYear && (hasDegree || hasSchool));
+    const currentHasContent = current.length > 0;
+    // 新条目条件：非子标签行 + 含时间段 + 当前条目已有内容 → 切分
+    // （只要遇到新的时间段，就认为是下一段教育经历，避免两段被合并）
+    const isNewEntry = !isSubLabel && hasYear && currentHasContent;
     if (isNewEntry) {
       entries.push(current.join(' '));
       current = [];
@@ -273,10 +272,12 @@ function parseEducation(text) {
   }
   if (current.length > 0) entries.push(current.join(' '));
 
-  // 对每条经历解析，过滤掉无学校无学历的空条目
+  // 对每条经历解析，过滤掉无学校无学历的条目
+  // 注意：不接受仅有 major 的条目——项目名可能意外匹配专业正则（如"XX设计"），
+  // 必须有 school 或 degree 才算有效教育经历
   const result = entries
     .map((entryText) => parseEducationEntry(entryText))
-    .filter((e) => e.school || e.degree || e.major);
+    .filter((e) => e.school || e.degree);
 
   return result.length > 0 ? result : [parseEducationEntry(text)];
 }
