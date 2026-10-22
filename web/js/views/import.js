@@ -1,5 +1,5 @@
-import { state } from '../store.js';
-import { escapeHtml } from '../utils.js';
+import { state } from '../store.js?v=20261023';
+import { escapeHtml } from '../utils.js?v=20261023';
 
 const STEPS = ['上传 PDF', '解析中', '确认字段', '存档成功'];
 
