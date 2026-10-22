@@ -1,15 +1,15 @@
 import {
   state, loadState, saveSession, saveProfiles, saveSettings,
   getProfile, addProfile, resetAll
-} from './store.js?v=20261023f';
-import { seedProfiles } from './seed.js?v=20261023f';
-import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023f';
-import * as authView from './views/auth.js?v=20261023f';
-import * as profilesView from './views/profiles.js?v=20261023f';
-import * as importView from './views/import.js?v=20261023f';
-import * as editorView from './views/editor.js?v=20261023f';
-import * as settingsView from './views/settings.js?v=20261023f';
-import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023f';
+} from './store.js?v=20261023g';
+import { seedProfiles } from './seed.js?v=20261023g';
+import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023g';
+import * as authView from './views/auth.js?v=20261023g';
+import * as profilesView from './views/profiles.js?v=20261023g';
+import * as importView from './views/import.js?v=20261023g';
+import * as editorView from './views/editor.js?v=20261023g';
+import * as settingsView from './views/settings.js?v=20261023g';
+import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023g';
 
 loadState();
 
@@ -280,10 +280,24 @@ const A = {
     });
     render();
   },
+  addDraftHonor() {
+    if (!state.draft) return;
+    collectForm(state.draft);
+    state.draft.honors = state.draft.honors || [];
+    state.draft.honors.push({ name: '', level: '', time: '', desc: '' });
+    render();
+  },
+  addDraftLanguage() {
+    if (!state.draft) return;
+    collectForm(state.draft);
+    state.draft.languages = state.draft.languages || [];
+    state.draft.languages.push({ lang: '英语', level: '', proficiency: '', score: '' });
+    render();
+  },
   removeDraftItem(type, index) {
     if (!state.draft) return;
     collectForm(state.draft);
-    state.draft[type].splice(index, 1);
+    if (Array.isArray(state.draft[type])) state.draft[type].splice(index, 1);
     render();
   },
   confirmArchive() {

@@ -1,5 +1,5 @@
-import { state } from '../store.js?v=20261023f';
-import { escapeHtml } from '../utils.js?v=20261023f';
+import { state } from '../store.js?v=20261023g';
+import { escapeHtml } from '../utils.js?v=20261023g';
 
 const STEPS = ['上传 PDF', '解析中', '确认字段', '存档成功'];
 
@@ -116,13 +116,32 @@ function renderPreview() {
         <textarea rows="3" data-path="experiences.${i}.desc">${escapeHtml(e.desc)}</textarea></div>
     </div>`).join('');
 
-  const honors = p.honors.map((h, i) =>
-    field(`荣誉 ${i + 1}`, `honors.${i}.name`, h.name, true)).join('');
+  const honors = (p.honors || []).map((h, i) => `
+    <div class="exp-item">
+      <div class="exp-head">
+        <div class="t">荣誉 ${i + 1}</div>
+        <button class="btn btn-ghost btn-sm" onclick="A.removeDraftItem('honors',${i})">删除</button>
+      </div>
+      <div class="row-2">
+        ${field('名称', `honors.${i}.name`, h.name)}
+        ${field('级别', `honors.${i}.level`, h.level)}
+        ${field('时间', `honors.${i}.time`, h.time)}
+      </div>
+    </div>`).join('');
 
-  const languages = p.languages.map((l) => `
-    ${field('英语水平', 'languages.0.level', l.level)}
-    ${field('熟练度', 'languages.0.proficiency', l.proficiency)}
-    ${field('分数', 'languages.0.score', l.score)}`).join('');
+  const languages = (p.languages || []).map((l, i) => `
+    <div class="exp-item">
+      <div class="exp-head">
+        <div class="t">语言 ${i + 1}</div>
+        <button class="btn btn-ghost btn-sm" onclick="A.removeDraftItem('languages',${i})">删除</button>
+      </div>
+      <div class="row-2">
+        ${field('语言', `languages.${i}.lang`, l.lang)}
+        ${field('水平', `languages.${i}.level`, l.level)}
+        ${field('熟练度', `languages.${i}.proficiency`, l.proficiency)}
+        ${field('分数', `languages.${i}.score`, l.score)}
+      </div>
+    </div>`).join('');
 
   return `
     <div class="section-block">
@@ -146,10 +165,12 @@ function renderPreview() {
     <div class="section-block">
       <h3>🏆 荣誉奖励</h3>
       ${honors || '<div class="empty" style="padding:16px">暂无荣誉记录</div>'}
+      <button class="btn btn-ghost btn-sm" onclick="A.addDraftHonor()">+ 添加荣誉</button>
     </div>
     <div class="section-block">
       <h3>🗣 语言能力</h3>
-      ${languages}
+      ${languages || '<div class="empty" style="padding:16px">暂无语言记录</div>'}
+      <button class="btn btn-ghost btn-sm" onclick="A.addDraftLanguage()">+ 添加语言</button>
     </div>
     <div class="section-block">
       <h3>✍ 自我评价</h3>

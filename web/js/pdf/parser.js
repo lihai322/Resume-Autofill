@@ -191,8 +191,16 @@ function parseEducationEntry(text) {
   // 绩点：GPA 3.8 / 绩点：3.8/4.0 / 平均分：88 / 均分 85 / 加权分 90 / 成绩 3.8
   const gpaLabels = 'GPA|gpa|绩点|平均绩点|学分绩点|平均分|均分|加权分|加权平均|专业成绩|成绩';
   edu.gpa = pick(`(?:${gpaLabels})[:：\\s]*([\\d.]+(?:\\s*\\/\\s*[\\d.]+)?)`, text);
-  const period = text.match(/((?:19|20)\d{2})\s*[-~至到]\s*((?:19|20)\d{2})/);
-  if (period) edu.period = `${period[1]}-${period[2]}`;
+  // 起止时间：支持 2021.09-2024.06 / 2021-09 至 2024-06 / 2021年9月-2024年6月 / 2021-2024 等
+  const period = text.match(/((?:19|20)\d{2})[年.\-/]?\s*(\d{1,2})?月?\s*[-~至到]\s*((?:19|20)\d{2}|至今|现在)[年.\-/]?\s*(\d{1,2})?月?/);
+  if (period) {
+    const startMonth = period[2];
+    const endMonth = period[4];
+    const start = startMonth ? `${period[1]}-${String(startMonth).padStart(2, '0')}` : period[1];
+    const endRaw = period[3];
+    const end = /至今|现在/.test(endRaw) ? '至今' : (endMonth ? `${endRaw}-${String(endMonth).padStart(2, '0')}` : endRaw);
+    edu.period = `${start} 至 ${end}`;
+  }
   // 若简历未写明学位学科门类，则根据专业 + 学历自动推断（如「计算机科学与技术 + 本科 → 工学学士」）
   if (!edu.academic_degree && edu.major && edu.degree) {
     const discipline = inferDiscipline(edu.major);

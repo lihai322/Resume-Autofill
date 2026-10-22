@@ -1,5 +1,5 @@
-import { state } from '../store.js?v=20261023f';
-import { escapeHtml, hexA } from '../utils.js?v=20261023f';
+import { state } from '../store.js?v=20261023g';
+import { escapeHtml, hexA } from '../utils.js?v=20261023g';
 
 export function render() {
   const cards = state.profiles.map((p) => {
