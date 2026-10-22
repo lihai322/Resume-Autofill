@@ -276,7 +276,7 @@ const A = {
     collectForm(state.draft);
     state.draft.education = state.draft.education || [];
     state.draft.education.push({
-      school: '', major: '', degree: '', academic_degree: '', gpa: '', period: ''
+      school: '', major: '', degree: '', academic_degree: '', gpa: '', courses: '', period: ''
     });
     render();
   },

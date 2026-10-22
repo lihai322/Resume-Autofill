@@ -92,6 +92,7 @@ function renderPreview() {
         ${field('绩点', `education.${i}.gpa`, ed.gpa)}
         ${field('主修科目', `education.${i}.major`, ed.major)}
       </div>
+      ${field('主修课程', `education.${i}.courses`, ed.courses || '')}
     </div>`).join('');
 
   const experiences = p.experiences.map((e, i) => `

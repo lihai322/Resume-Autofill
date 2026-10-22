@@ -10,7 +10,7 @@ export const seedProfile = {
   email: 'liming@example.com',
   location: '北京',
   education: [
-    { school: '北京邮电大学', major: '计算机科学与技术', degree: '本科', academic_degree: '工学学士', gpa: '3.8/4.0', period: '2016-2020' }
+    { school: '北京邮电大学', major: '计算机科学与技术', degree: '本科', academic_degree: '工学学士', gpa: '3.8/4.0', courses: '数据结构、算法设计与分析、操作系统、计算机网络、数据库系统、软件工程', period: '2016-2020' }
   ],
   experiences: [
     {

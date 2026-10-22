@@ -155,14 +155,14 @@ function parseLocation(text) {
 }
 
 function parseEducation(text) {
-  const edu = { school: '', major: '', degree: '', academic_degree: '', gpa: '', period: '' };
+  const edu = { school: '', major: '', degree: '', academic_degree: '', gpa: '', courses: '', period: '' };
   edu.degree = pick(/(博士|硕士|本科|大专|专科|学士)/, text);
   // 学位：带学科前缀，如「工学学士」「理学硕士」「管理学博士」
   edu.academic_degree = pick(/([\u4e00-\u9fa5]{1,6}(?:学士|硕士|博士))/, text)
     || pick(/(?:学位)[：:\s]*([\u4e00-\u9fa5]{2,10})/, text);
   edu.school = pick(/([\u4e00-\u9fa5A-Za-z]{2,20}(大学|学院|学校|University|College))/, text);
   // 专业：优先 "专业：xxx"，其次从非学校名的关键词里找
-  const labeledMajor = pick(/(?:专业|主修)[：:\s]*([\u4e00-\u9fa5A-Za-z]{2,20})/, text);
+  const labeledMajor = pick(/(?:专业|主修方向|专业方向)[：:\s]*([\u4e00-\u9fa5A-Za-z]{2,20})/, text);
   if (labeledMajor) {
     edu.major = labeledMajor;
   } else {
@@ -176,8 +176,11 @@ function parseEducation(text) {
       return true;
     }) || '';
   }
-  // 绩点：GPA 3.8 / 绩点：3.8/4.0
-  edu.gpa = pick(/(?:GPA|gpa|绩点)[:：\s]*([\d.]+(?:\s*\/\s*[\d.]+)?)/, text);
+  // 主修课程：数据结构、算法、操作系统、计算机网络
+  edu.courses = pick(/(?:主修课程|核心课程|主要课程|所学课程|专业课程)[：:\s]*([\u4e00-\u9fa5A-Za-z0-9、,，\s]{2,120})/, text).trim();
+  // 绩点：GPA 3.8 / 绩点：3.8/4.0 / 平均分：88 / 均分 85 / 加权分 90 / 成绩 3.8
+  const gpaLabels = 'GPA|gpa|绩点|平均绩点|学分绩点|平均分|均分|加权分|加权平均|专业成绩|成绩';
+  edu.gpa = pick(`(?:${gpaLabels})[:：\\s]*([\\d.]+(?:\\s*\\/\\s*[\\d.]+)?)`, text);
   const period = text.match(/((?:19|20)\d{2})\s*[-~至到]\s*((?:19|20)\d{2})/);
   if (period) edu.period = `${period[1]}-${period[2]}`;
   return edu;
@@ -185,28 +188,48 @@ function parseEducation(text) {
 
 const EDU_HINT = /(大学|学院|学校|University|College|教育|学历|专业|主修|GPA|绩点)/;
 
+// 段落标题：用于区分教育段 / 项目段 / 实践段
+const EDU_SECTION_RE = /(教育背景|教育经历|教育情况|学历背景|学习经历|学习情况)/;
+const PRACTICE_SECTION_RE = /(实践经历|实践经验|实习经历|实习经验|工作经历|工作经验|校园经历|校园实践|社会实践|学生工作|志愿服务|社团活动|兼职经历|课外活动)/;
+const PROJECT_SECTION_RE = /(项目经历|项目经验|科研项目|项目背景|项目介绍|学术成果)/;
+
 // 识别一段时间段，用于经历切分
 function parseExperiences(text) {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
   const exps = [];
+
+  // 第一遍：给每行打上所属段落类型标签
+  // 'edu' = 教育段，'practice' = 实践/实习/工作段，'project' = 项目段，'' = 未分类
+  const lineSection = [];
+  let section = '';
+  for (let k = 0; k < lines.length; k += 1) {
+    if (EDU_SECTION_RE.test(lines[k])) section = 'edu';
+    else if (PRACTICE_SECTION_RE.test(lines[k])) section = 'practice';
+    else if (PROJECT_SECTION_RE.test(lines[k])) section = 'project';
+    lineSection[k] = section;
+  }
+
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
+    // 教育段的行直接跳过，不再误判为经历
+    if (lineSection[i] === 'edu') { i += 1; continue; }
+
     const periodMatch = line.match(/((?:19|20)\d{2})[年.\-/]?\s*(\d{1,2})?\s*[-~至到]\s*((?:19|20)\d{2}|至今|现在)[年.\-/]?\s*(\d{1,2})?/);
-    if (periodMatch && !EDU_HINT.test(line)) {
+    if (periodMatch) {
       const start = `${periodMatch[1]}-${String(periodMatch[2] || '01').padStart(2, '0')}`;
       const endRaw = periodMatch[3];
       const end = /至今|现在/.test(endRaw) ? '至今' : `${endRaw}-${String(periodMatch[4] || '01').padStart(2, '0')}`;
       const nameLine = line.replace(periodMatch[0], '').trim() || lines[i + 1] || '';
-      // 角色词：连续 1-3 个角色关键词（中间允许空格），如「前端负责人」「产品经理」
+      // 角色词：从行末匹配连续 1-3 个角色关键词（中间允许空格），如「前端开发实习生」「产品经理」
       const rolePat = '前端|后端|全栈|产品|算法|测试|运营|设计|开发|经理|主管|工程师|实习生|负责人|架构师|分析师|顾问';
-      const roleRe = new RegExp(`(${rolePat})(?:\\s*(${rolePat})){0,2}`);
+      const roleRe = new RegExp(`(?:(?:${rolePat})\\s*){1,3}$`);
       const roleMatch = nameLine.match(roleRe);
       let role = '';
       let name = nameLine;
       if (roleMatch) {
         role = roleMatch[0].replace(/\s+/g, '');
-        name = nameLine.replace(roleMatch[0], '');
+        name = nameLine.slice(0, nameLine.length - roleMatch[0].length);
       }
       // 去掉括号内容 + 首尾分隔符（空格 / | / · / - / 冒号 / 逗号）
       name = name
@@ -223,7 +246,11 @@ function parseExperiences(text) {
       }
       const desc = descLines.join('；').slice(0, 200);
       if (name && !EDU_HINT.test(name)) {
-        const type = /实习/.test(desc + name) ? '实践' : '项目';
+        // 类型判定：优先按段落标题，其次按关键词兜底
+        let type;
+        if (lineSection[i] === 'practice') type = '实践';
+        else if (lineSection[i] === 'project') type = '项目';
+        else type = /(实习|实践|工作|校园|志愿|学生|社团|兼职|竞赛|比赛)/.test(desc + name) ? '实践' : '项目';
         exps.push({ type, name, role, start, end, desc, achievements: [] });
       }
       i = j;
