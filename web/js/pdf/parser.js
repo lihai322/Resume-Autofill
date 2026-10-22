@@ -158,10 +158,17 @@ function parseLocation(text) {
 function parseEducationEntry(text) {
   const edu = { school: '', major: '', degree: '', academic_degree: '', gpa: '', courses: '', period: '' };
   edu.degree = pick(/(博士|硕士|本科|大专|专科|学士)/, text);
-  // 学位：带学科前缀，如「工学学士」「理学硕士」「管理学博士」
-  edu.academic_degree = pick(/([\u4e00-\u9fa5]{1,6}(?:学士|硕士|博士))/, text)
+  // 学位：只匹配已知学科门类前缀（工学/理学/农学/医学/文学/法学/经济学/管理学/教育学/艺术学/历史学）
+  // 避免把「环境工程硕士」里的「工程硕士」误当学位
+  const disciplineNames = DISCIPLINE_RULES.map((r) => r.name).join('|');
+  edu.academic_degree = pick(new RegExp(`((${disciplineNames})(?:学士|硕士|博士))`), text)
     || pick(/(?:学位)[：:\s]*([\u4e00-\u9fa5]{2,10})/, text);
-  edu.school = pick(/([\u4e00-\u9fa5A-Za-z]{2,20}(?:大学|学院|学校|University|College)(?:[（(][^）)]{1,20}[)）])*)/, text);
+  // 学校名：保留位置类括号（如「中国石油大学（北京）」），去掉标签类括号（如「（211）」「（985）」「（双一流）」）
+  let school = pick(/([\u4e00-\u9fa5A-Za-z]{2,20}(?:大学|学院|学校|University|College)(?:[（(][^）)]{1,20}[)）])*)/, text);
+  if (school) {
+    school = school.replace(/[（(](?:\d+|985|211|双一流|重点|名牌|省部共建|省属|市属|985工程|211工程)[)）]/g, '');
+  }
+  edu.school = school;
   // 专业：优先 "专业：xxx"，其次从非学校名的关键词里找
   const labeledMajor = pick(/(?:专业|主修方向|专业方向)[：:\s]*([\u4e00-\u9fa5A-Za-z]{2,20})/, text);
   if (labeledMajor) {
@@ -202,15 +209,19 @@ function parseEducation(text) {
   const sectionText = eduSection || text;
   const lines = sectionText.split('\n').map((l) => l.trim()).filter(Boolean);
 
-  // 按学历关键词切分多条教育经历
-  // 一行内若含「本科/硕士/博士/大专」或「年份-年份」，视为一条经历的起始
+  // 按学历关键词 / 学校名切分多条教育经历
   const entries = [];
   let current = [];
-  const DEGREE_RE = /(博士|硕士|本科|大专|专科)/;
+  const DEGREE_RE = /(博士|硕士|本科|大专|专科|学士)/;
+  const SCHOOL_RE = /(大学|学院|学校|University|College)/;
   const YEAR_RE = /(?:19|20)\d{2}\s*[-~至到]\s*(?:19|20)\d{2}/;
 
   for (const line of lines) {
-    const isNewEntry = DEGREE_RE.test(line) || (YEAR_RE.test(line) && /(大学|学院|学校)/.test(line));
+    const hasDegree = DEGREE_RE.test(line);
+    const hasSchool = SCHOOL_RE.test(line);
+    // 当前条目已有学校时，新行若含学校名或学历词，则视为新一条经历
+    const currentHasSchool = current.some((l) => SCHOOL_RE.test(l));
+    const isNewEntry = hasDegree || (hasSchool && currentHasSchool) || (YEAR_RE.test(line) && hasSchool);
     if (isNewEntry && current.length > 0) {
       entries.push(current.join(' '));
       current = [];
@@ -304,9 +315,10 @@ function parseExperiences(text) {
       const endRaw = periodMatch[3];
       const end = /至今|现在/.test(endRaw) ? '至今' : `${endRaw}-${String(periodMatch[4] || '01').padStart(2, '0')}`;
       const nameLine = line.replace(periodMatch[0], '').trim() || lines[i + 1] || '';
-      // 角色词：从行末匹配连续 1-3 个角色关键词（中间允许空格），如「前端开发实习生」「产品经理」
-      const rolePat = '前端|后端|全栈|产品|算法|测试|运营|设计|开发|经理|主管|工程师|实习生|负责人|架构师|分析师|顾问';
-      const roleRe = new RegExp(`(?:(?:${rolePat})\\s*){1,3}$`);
+      // 角色词：从行末匹配连续 1-3 个角色关键词（可带修饰词前缀，如「主要负责人」「小组组长」「前端开发实习生」）
+      const roleMods = '主要|核心|小组|团队|项目|技术|执行|高级|资深';
+      const rolePat = '前端|后端|全栈|产品|算法|测试|运营|设计|开发|经理|主管|工程师|实习生|负责人|架构师|分析师|顾问|组长|成员|总监|leader';
+      const roleRe = new RegExp(`(?:(?:${roleMods})?\\s*(?:${rolePat})\\s*){1,3}$`);
       const roleMatch = nameLine.match(roleRe);
       let role = '';
       let name = nameLine;

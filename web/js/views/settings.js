@@ -1,4 +1,4 @@
-import { state } from '../store.js?v=20261023d';
+import { state } from '../store.js?v=20261023e';
 
 export function render() {
   const row = (title, desc, on, key) => `
