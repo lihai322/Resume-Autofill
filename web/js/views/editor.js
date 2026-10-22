@@ -1,6 +1,6 @@
-import { getProfile } from '../store.js?v=20261023e';
-import { COLORS } from '../seed.js?v=20261023e';
-import { escapeHtml, ageFrom, hexA } from '../utils.js?v=20261023e';
+import { getProfile } from '../store.js?v=20261023f';
+import { COLORS } from '../seed.js?v=20261023f';
+import { escapeHtml, ageFrom, hexA } from '../utils.js?v=20261023f';
 
 const NAV = [
   { k: 'basic', icon: '👤', label: '基本信息' },
@@ -88,7 +88,7 @@ function educationSection(p) {
       </div>
       <div class="row-2">
         ${input('毕业院校', `education.${i}.school`, ed.school)}
-        ${input('毕业时间', `education.${i}.period`, ed.period)}
+        ${input('起止时间', `education.${i}.period`, ed.period)}
         ${input('学历', `education.${i}.degree`, ed.degree)}
         ${input('学位', `education.${i}.academic_degree`, ed.academic_degree)}
         ${input('绩点', `education.${i}.gpa`, ed.gpa)}

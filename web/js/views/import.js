@@ -1,5 +1,5 @@
-import { state } from '../store.js?v=20261023e';
-import { escapeHtml } from '../utils.js?v=20261023e';
+import { state } from '../store.js?v=20261023f';
+import { escapeHtml } from '../utils.js?v=20261023f';
 
 const STEPS = ['上传 PDF', '解析中', '确认字段', '存档成功'];
 
@@ -86,7 +86,7 @@ function renderPreview() {
       </div>
       <div class="row-2">
         ${field('毕业院校', `education.${i}.school`, ed.school)}
-        ${field('毕业时间', `education.${i}.period`, ed.period)}
+        ${field('起止时间', `education.${i}.period`, ed.period)}
         ${field('学历', `education.${i}.degree`, ed.degree)}
         ${field('学位', `education.${i}.academic_degree`, ed.academic_degree)}
         ${field('绩点', `education.${i}.gpa`, ed.gpa)}

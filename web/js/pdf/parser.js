@@ -219,10 +219,12 @@ function parseEducation(text) {
   for (const line of lines) {
     const hasDegree = DEGREE_RE.test(line);
     const hasSchool = SCHOOL_RE.test(line);
-    // 当前条目已有学校时，新行若含学校名或学历词，则视为新一条经历
+    const currentHasDegree = current.some((l) => DEGREE_RE.test(l));
     const currentHasSchool = current.some((l) => SCHOOL_RE.test(l));
-    const isNewEntry = hasDegree || (hasSchool && currentHasSchool) || (YEAR_RE.test(line) && hasSchool);
-    if (isNewEntry && current.length > 0) {
+    // 新条目条件：当前条目已有学历，且新行含学历词 或 新行含学校名（当前已有学校）
+    // 这样学校名单独行会被并入下一行的学历信息，不会被切成空条目
+    const isNewEntry = currentHasDegree && (hasDegree || (hasSchool && currentHasSchool));
+    if (isNewEntry) {
       entries.push(current.join(' '));
       current = [];
     }
@@ -315,10 +317,15 @@ function parseExperiences(text) {
       const endRaw = periodMatch[3];
       const end = /至今|现在/.test(endRaw) ? '至今' : `${endRaw}-${String(periodMatch[4] || '01').padStart(2, '0')}`;
       const nameLine = line.replace(periodMatch[0], '').trim() || lines[i + 1] || '';
-      // 角色词：从行末匹配连续 1-3 个角色关键词（可带修饰词前缀，如「主要负责人」「小组组长」「前端开发实习生」）
-      const roleMods = '主要|核心|小组|团队|项目|技术|执行|高级|资深';
-      const rolePat = '前端|后端|全栈|产品|算法|测试|运营|设计|开发|经理|主管|工程师|实习生|负责人|架构师|分析师|顾问|组长|成员|总监|leader';
-      const roleRe = new RegExp(`(?:(?:${roleMods})?\\s*(?:${rolePat})\\s*){1,3}$`);
+      // 角色词：从行末匹配连续 1-3 个角色单元
+      // 注意：裸「开发」不当角色（太常见于项目名如「技术开发」「系统开发」），
+      // 只有「前端开发/后端开发/全栈开发/软件开发」等复合形式才算
+      const roleMods = '主要|核心|小组|团队|项目|执行|高级|资深';
+      const roleDirDev = '前端开发|后端开发|全栈开发|软件开发|移动开发|游戏开发|嵌入式开发|算法开发';
+      const roleStandalone = '负责人|经理|主管|工程师|实习生|组长|成员|架构师|分析师|顾问|总监|leader|coo|ceo|cto';
+      const roleDir = '前端|后端|全栈|产品|算法|测试|运营|设计';
+      const roleUnit = `${roleDirDev}|${roleStandalone}|${roleDir}`;
+      const roleRe = new RegExp(`(?:(?:${roleMods})?\\s*(?:${roleUnit})\\s*){1,3}$`);
       const roleMatch = nameLine.match(roleRe);
       let role = '';
       let name = nameLine;
