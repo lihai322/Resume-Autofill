@@ -303,7 +303,7 @@ function inferDiscipline(major) {
   return '';
 }
 
-const EDU_HINT = /(大学|学院|学校|University|College|教育|学历|专业|主修|GPA|绩点)/;
+const EDU_HINT = /(大学|学院|学校|University|College|教育|学历|专业|主修|GPA|绩点|硕士|本科|博士|学士|大专|专科|推免|保研|考研|毕业论文|研究方向|主修课程|学习成绩)/;
 
 // 段落标题：用于区分教育段 / 项目段 / 实践段
 const EDU_SECTION_RE = /(教育背景|教育经历|教育情况|学历背景|学习经历|学习情况)/;
@@ -343,10 +343,16 @@ function parseExperiences(text) {
   // 'edu' = 教育段，'practice' = 实践/实习/工作段，'project' = 项目段，'' = 未分类
   const lineSection = [];
   let section = '';
+  const HAS_PERIOD = /(?:19|20)\d{2}[年.\-/]?\s*\d{0,2}月?\s*[-~至到]/;
   for (let k = 0; k < lines.length; k += 1) {
     if (EDU_SECTION_RE.test(lines[k])) section = 'edu';
     else if (PRACTICE_SECTION_RE.test(lines[k])) section = 'practice';
     else if (PROJECT_SECTION_RE.test(lines[k])) section = 'project';
+    // 无教育标题时兜底：含时间段 + 学历词/学校词的行视为教育行
+    if (section !== 'edu' && HAS_PERIOD.test(lines[k]) && /(大学|学院|学校|硕士|本科|博士|学士|大专|专科|University|College)/.test(lines[k])) {
+      lineSection[k] = 'edu';
+      continue;
+    }
     lineSection[k] = section;
   }
 
@@ -392,7 +398,8 @@ function parseExperiences(text) {
         j += 1;
       }
       const desc = descLines.join('；').slice(0, 200);
-      if (name && !EDU_HINT.test(name)) {
+      // 教育内容过滤：名称或描述含学校/学历/课程等关键词 → 跳过，不误判为经历
+      if (name && !EDU_HINT.test(name) && !EDU_HINT.test(desc)) {
         // 类型判定：优先按段落标题，其次按关键词兜底
         let type;
         if (lineSection[i] === 'practice') type = '实践';
