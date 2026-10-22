@@ -3,7 +3,7 @@ import {
   getProfile, addProfile, resetAll
 } from './store.js';
 import { seedProfiles } from './seed.js';
-import { collectForm, downloadJson, newId, today, toast } from './utils.js';
+import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js';
 import * as authView from './views/auth.js';
 import * as profilesView from './views/profiles.js';
 import * as importView from './views/import.js';
@@ -104,6 +104,8 @@ async function runParse(file, useSimulated) {
         }
       }
       appendLog(`✓ 提取文本 ${text.length} 字符`);
+      const preview = text.replace(/\s+/g, ' ').slice(0, 400);
+      appendLog(`<div style="margin-top:6px;padding:8px;background:#f5f5f5;border-radius:6px;font-size:11px;color:#555;line-height:1.6;word-break:break-all">📄 原文片段：${escapeHtml(preview)}…</div>`);
       const parsed = parseResumeText(text);
       state.draft = mergeDraft(parsed);
       const low = lowConfidenceFields(state.draft);

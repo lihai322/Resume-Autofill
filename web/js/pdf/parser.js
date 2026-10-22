@@ -30,10 +30,57 @@ export async function extractText(file, onProgress) {
     if (onProgress) onProgress(i, pdf.numPages);
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const pageText = content.items.map((item) => item.str || '').join(' ');
-    text += `${pageText}\n`;
+    text += `${reorderPageText(content.items)}\n`;
   }
-  return text;
+  return normalizeText(text);
+}
+
+// pdf.js 的 items 顺序不一定是阅读顺序，需按坐标重排：
+// 1. 按 y 坐标分组（同 y 误差 ±5 视为同一行）
+// 2. 每行内按 x 排序
+function reorderPageText(items) {
+  const withPos = items
+    .map((item) => {
+      const tx = item.transform || [1, 0, 0, 1, 0, 0];
+      return { str: item.str || '', x: tx[4], y: tx[5], height: item.height || 0 };
+    })
+    .filter((t) => t.str.trim() !== '');
+
+  if (withPos.length === 0) return '';
+
+  // 按 y 降序（PDF 坐标 y 越大越靠上）
+  withPos.sort((a, b) => b.y - a.y);
+
+  const lines = [];
+  let currentLine = [withPos[0]];
+  for (let k = 1; k < withPos.length; k += 1) {
+    const prev = currentLine[currentLine.length - 1];
+    if (Math.abs(prev.y - withPos[k].y) <= 5) {
+      currentLine.push(withPos[k]);
+    } else {
+      lines.push(currentLine);
+      currentLine = [withPos[k]];
+    }
+  }
+  lines.push(currentLine);
+
+  return lines
+    .map((line) => {
+      line.sort((a, b) => a.x - b.x);
+      return line.map((t) => t.str).join('');
+    })
+    .join('\n');
+}
+
+// 文本归一化：全角转半角、压缩多余空白、统一标点
+function normalizeText(text) {
+  return text
+    .replace(/　/g, ' ')
+    .replace(/\u3000/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\r/g, '')
+    .trim();
 }
 
 export async function ocrImage(file, onProgress) {
@@ -66,18 +113,20 @@ function pickAll(pattern, text) {
 }
 
 function parseName(text) {
-  // 优先匹配 "姓名：xxx"，否则取开头短文本
-  const labeled = pick(/姓\s*名[：:\s]+([\u4e00-\u9fa5·]{2,6})/, text);
+  // 优先匹配 "姓名：xxx"，并严格限制为 2-6 个中文
+  const labeled = pick(/姓\s*名\s*[：:\s]+([\u4e00-\u9fa5·]{2,6})/, text);
   if (labeled) return labeled.trim();
-  // 取第一行（去除空白），2-6 个中文字
-  const firstLine = text.split('\n').map((l) => l.trim()).find((l) => l && l.length <= 10);
-  if (firstLine && /^[\u4e00-\u9fa5·]{2,6}$/.test(firstLine)) return firstLine;
-  return '';
+  // 取第一个 2-6 个纯中文（且不是标题词）的片段
+  const candidates = text.match(/[\u4e00-\u9fa5·]{2,6}/g) || [];
+  const stop = ['简历', '姓名', '手机', '邮箱', '电话', '出生', '所在', '城市', '教育', '项目', '实践', '荣誉', '语言', '自评'];
+  const hit = candidates.find((c) => !stop.some((s) => c.includes(s)));
+  return hit || '';
 }
 
 function parsePhone(text) {
-  const m = text.match(/1[3-9]\d{9}/);
-  return m ? m[0] : '';
+  // 手机号：11 位；也兼容 3-4-4 分段写法（如 138 0000 6688）
+  const m = text.match(/1[3-9]\d{9}|1[3-9]\d\s?\d{4}\s?\d{4}/);
+  return m ? m[0].replace(/\s/g, '') : '';
 }
 
 function parseEmail(text) {
@@ -86,13 +135,15 @@ function parseEmail(text) {
 }
 
 function parseBirthDate(text) {
-  let m = text.match(/(19[5-9]\d|200\d)[年.\-/](\d{1,2})[月.\-/]?(\d{1,2})?/);
+  // 兼容：1998年5月12日 / 1998.05.12 / 1998-05-12 / 1998/05/12 / 1998年5月
+  let m = text.match(/(19[5-9]\d|200\d)\s*[年.\-/]\s*(\d{1,2})\s*[月.\-/]?\s*(\d{1,2})?/);
   if (m) {
     const y = m[1];
     const mo = String(m[2]).padStart(2, '0');
     const d = m[3] ? String(m[3]).padStart(2, '0') : '01';
     return `${y}-${mo}-${d}`;
   }
+  // 只有年份
   m = text.match(/(19[5-9]\d|200\d)\s*年/);
   return m ? `${m[1]}-01-01` : '';
 }
