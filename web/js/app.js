@@ -1,15 +1,15 @@
 import {
   state, loadState, saveSession, saveProfiles, saveSettings,
   getProfile, addProfile, resetAll
-} from './store.js?v=20261023g';
-import { seedProfiles } from './seed.js?v=20261023g';
-import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023g';
-import * as authView from './views/auth.js?v=20261023g';
-import * as profilesView from './views/profiles.js?v=20261023g';
-import * as importView from './views/import.js?v=20261023g';
-import * as editorView from './views/editor.js?v=20261023g';
-import * as settingsView from './views/settings.js?v=20261023g';
-import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023g';
+} from './store.js?v=20261023h';
+import { seedProfiles } from './seed.js?v=20261023h';
+import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023h';
+import * as authView from './views/auth.js?v=20261023h';
+import * as profilesView from './views/profiles.js?v=20261023h';
+import * as importView from './views/import.js?v=20261023h';
+import * as editorView from './views/editor.js?v=20261023h';
+import * as settingsView from './views/settings.js?v=20261023h';
+import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023h';
 
 loadState();
 
@@ -170,6 +170,14 @@ const A = {
   openProfile(id) {
     state.currentId = id;
     state.view = 'edit';
+    render();
+  },
+  deleteProfile(id) {
+    if (!confirm('确定要删除这个档案吗？此操作不可撤销。')) return;
+    state.profiles = state.profiles.filter((p) => p.id !== id);
+    if (state.currentId === id) state.currentId = null;
+    saveProfiles();
+    toast('档案已删除');
     render();
   },
   editCurrent() {

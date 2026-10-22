@@ -1,5 +1,5 @@
-import { state } from '../store.js?v=20261023g';
-import { escapeHtml, hexA } from '../utils.js?v=20261023g';
+import { state } from '../store.js?v=20261023h';
+import { escapeHtml, hexA } from '../utils.js?v=20261023h';
 
 export function render() {
   const cards = state.profiles.map((p) => {
@@ -14,6 +14,8 @@ export function render() {
           <div class="name">${escapeHtml(p.name)}</div>
           <div class="target">${escapeHtml(p.target || '未设置方向')}</div>
         </div>
+        <button class="icon-btn" title="删除档案" style="margin-left:auto"
+          onclick="event.stopPropagation();A.deleteProfile('${p.id}')">✕</button>
       </div>
       <div class="stats">
         <span><b>${p.experiences?.length || 0}</b> 经历</span>

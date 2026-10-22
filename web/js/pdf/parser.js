@@ -164,13 +164,15 @@ function parseEducationEntry(text) {
   edu.academic_degree = pick(new RegExp(`((${disciplineNames})(?:学士|硕士|博士))`), text)
     || pick(/(?:学位)[：:\s]*([\u4e00-\u9fa5]{2,10})/, text);
   // 学校名：保留位置类括号（如「中国石油大学（北京）」），去掉标签类括号（如「（211）」「（985）」「（双一流）」）
-  let school = pick(/([\u4e00-\u9fa5A-Za-z]{2,20}(?:大学|学院|学校|University|College)(?:[（(][^）)]{1,20}[)）])*)/, text);
+  // 排除「大学生」「大学英语」等非学校用法
+  let school = pick(/([\u4e00-\u9fa5A-Za-z]{2,20}(?:大学(?!生)|学院(?!路|街)|学校|University|College)(?:[（(][^）)]{1,20}[)）])*)/, text);
   if (school) {
-    school = school.replace(/[（(](?:\d+|985|211|双一流|重点|名牌|省部共建|省属|市属|985工程|211工程)[)）]/g, '');
+    school = school.replace(/[（(](?:\d+|985|211|双一流|重点|名牌|省部共建|省属|市属|985工程|211工程|市一流|省一流|国家一流)[)）]/g, '');
   }
   edu.school = school;
   // 专业：优先 "专业：xxx"，其次从非学校名的关键词里找
-  const labeledMajor = pick(/(?:专业|主修方向|专业方向)[：:\s]*([\u4e00-\u9fa5A-Za-z]{2,20})/, text);
+  // 注意：「专业绩点」里的「专业」不是标签，必须后跟分隔符（：: 空格）才算
+  const labeledMajor = pick(/(?:专业|主修方向|专业方向)[：:\s]+([\u4e00-\u9fa5A-Za-z]{2,20})/, text);
   if (labeledMajor) {
     edu.major = labeledMajor;
   } else {
@@ -188,9 +190,9 @@ function parseEducationEntry(text) {
   }
   // 主修课程：数据结构、算法、操作系统、计算机网络
   edu.courses = pick(/(?:主修课程|核心课程|主要课程|所学课程|专业课程)[：:\s]*([\u4e00-\u9fa5A-Za-z0-9、,，\s]{2,120})/, text).trim();
-  // 绩点：GPA 3.8 / 绩点：3.8/4.0 / 平均分：88 / 均分 85 / 加权分 90 / 成绩 3.8
+  // 绩点：GPA 3.8 / 绩点：3.8/4.0 / 绩点为3.63/5 / 平均分：88 / 均分 85 / 加权分 90 / 成绩 3.8
   const gpaLabels = 'GPA|gpa|绩点|平均绩点|学分绩点|平均分|均分|加权分|加权平均|专业成绩|成绩';
-  edu.gpa = pick(`(?:${gpaLabels})[:：\\s]*([\\d.]+(?:\\s*\\/\\s*[\\d.]+)?)`, text);
+  edu.gpa = pick(`(?:${gpaLabels})[为:：\\s]*([\\d.]+(?:\\s*\\/\\s*[\\d.]+)?)`, text);
   // 起止时间：支持 2021.09-2024.06 / 2021-09 至 2024-06 / 2021年9月-2024年6月 / 2021-2024 等
   const period = text.match(/((?:19|20)\d{2})[年.\-/]?\s*(\d{1,2})?月?\s*[-~至到]\s*((?:19|20)\d{2}|至今|现在)[年.\-/]?\s*(\d{1,2})?月?/);
   if (period) {
@@ -221,17 +223,20 @@ function parseEducation(text) {
   const entries = [];
   let current = [];
   const DEGREE_RE = /(博士|硕士|本科|大专|专科|学士)/;
-  const SCHOOL_RE = /(大学|学院|学校|University|College)/;
+  const SCHOOL_RE = /(大学(?!生)|学院(?!路|街)|学校|University|College)/;
   const YEAR_RE = /(?:19|20)\d{2}\s*[-~至到]\s*(?:19|20)\d{2}/;
+  // 教育段内的子标签行，不应另起新条目（应并入当前条目）
+  const SUB_LABEL_RE = /^(主修课程|核心课程|主要课程|所学课程|专业课程|学习成绩|综合表现|获奖|荣誉|技能|证书|社团|实践经历|工作经历|项目经历|自我评价|求职意向|个人简介|兴趣爱好|通讯地址|联系电话|电子邮箱|所在城市|出生年月|政治面貌|民族|性别|籍贯|健康状况|婚姻状况)/;
 
   for (const line of lines) {
     const hasDegree = DEGREE_RE.test(line);
     const hasSchool = SCHOOL_RE.test(line);
+    const isSubLabel = SUB_LABEL_RE.test(line);
     const currentHasDegree = current.some((l) => DEGREE_RE.test(l));
     const currentHasSchool = current.some((l) => SCHOOL_RE.test(l));
     // 新条目条件：当前条目已有学历，且新行含学历词 或 新行含学校名（当前已有学校）
-    // 这样学校名单独行会被并入下一行的学历信息，不会被切成空条目
-    const isNewEntry = currentHasDegree && (hasDegree || (hasSchool && currentHasSchool));
+    // 子标签行（主修课程/学习成绩/综合表现等）不另起条目，直接并入当前
+    const isNewEntry = !isSubLabel && currentHasDegree && (hasDegree || (hasSchool && currentHasSchool));
     if (isNewEntry) {
       entries.push(current.join(' '));
       current = [];
@@ -251,7 +256,7 @@ function parseEducation(text) {
 // 根据专业关键词推断学位学科门类（工学/理学/农学/医学/文学/法学/经济学/管理学/教育学/艺术学/历史学）
 const DISCIPLINE_RULES = [
   { name: '工学', keywords: ['计算机', '软件', '电子', '通信', '信息工程', '机械', '土木', '建筑', '自动化', '材料', '化工', '化学工程', '能源', '航空', '船舶', '兵器', '核工程', '环境工程', '生物医学工程', '工业工程', '网络工程', '物联网', '人工智能', '数据科学', '电气工程', '车辆工程', '测绘', '地质工程', '采矿', '石油', '纺织', '轻工', '印刷', '安全工程'] },
-  { name: '理学', keywords: ['数学', '物理', '化学', '生物科学', '生物技术', '地理科学', '地质学', '大气', '海洋', '地球物理', '心理学', '统计学', '应用物理', '应用化学', '生物信息'] },
+  { name: '理学', keywords: ['数学', '物理', '化学', '生物科学', '生物技术', '地理科学', '地质学', '大气', '海洋', '地球物理', '心理学', '统计学', '应用物理', '应用化学', '生物信息', '环境科学', '生态学', '材料化学', '化学生物'] },
   { name: '农学', keywords: ['农学', '园艺', '植物保护', '动物科学', '动物医学', '林学', '水产', '草业', '农业资源', '种子科学'] },
   { name: '医学', keywords: ['临床医学', '口腔医学', '基础医学', '预防医学', '中医学', '药学', '护理学', '公共卫生', '医学影像', '医学检验', '康复治疗', '麻醉学', '儿科学', '眼视光'] },
   { name: '文学', keywords: ['汉语言', '中文', '外语', '英语', '日语', '俄语', '德语', '法语', '西班牙语', '新闻', '传播', '翻译', '广告学', '编辑出版'] },
