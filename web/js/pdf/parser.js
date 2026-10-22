@@ -217,7 +217,30 @@ function parseEducation(text) {
   // 先截取教育段（从教育标题到下一个段落标题）
   const eduSection = extractSection(text, EDU_SECTION_RE);
   const sectionText = eduSection || text;
-  const lines = sectionText.split('\n').map((l) => l.trim()).filter(Boolean);
+  const rawLines = sectionText.split('\n').map((l) => l.trim()).filter(Boolean);
+
+  // 预处理：PDF 可能把多条教育经历合并到同一行（用分号/空格分隔）
+  // 若一行内包含多个时间段，则按时间段起始位置拆成多行
+  const PERIOD_START_RE = /(?:19|20)\d{2}[年.\-/]?\s*\d{0,2}月?\s*[-~至到]/g;
+  const lines = [];
+  for (const line of rawLines) {
+    const matches = [...line.matchAll(PERIOD_START_RE)];
+    if (matches.length <= 1) {
+      lines.push(line);
+      continue;
+    }
+    // 多个时间段 → 在每个时间段前切分
+    let lastEnd = 0;
+    for (const m of matches) {
+      if (m.index > lastEnd) {
+        const segment = line.slice(lastEnd, m.index).trim().replace(/^[；;、，,]\s*/, '');
+        if (segment) lines.push(segment);
+      }
+      lastEnd = m.index;
+    }
+    const tail = line.slice(lastEnd).trim();
+    if (tail) lines.push(tail);
+  }
 
   // 按学历关键词 / 学校名切分多条教育经历
   const entries = [];
