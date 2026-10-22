@@ -367,11 +367,25 @@ function parseExperiences(text) {
     // 教育段的行直接跳过，不再误判为经历
     if (lineSection[i] === 'edu') { i += 1; continue; }
 
-    const periodMatch = line.match(/((?:19|20)\d{2})[年.\-/]?\s*(\d{1,2})?\s*[-~至到]\s*((?:19|20)\d{2}|至今|现在)[年.\-/]?\s*(\d{1,2})?/);
+    // 时间段匹配：优先匹配有范围的（2023.09-2024.06 / 2023.09至今），
+    // 其次匹配只有开始时间的（2026.09 XXX / 2026年9月 XXX）
+    let periodMatch = line.match(/((?:19|20)\d{2})[年.\-/]?\s*(\d{1,2})?\s*[-~至到]\s*((?:19|20)\d{2}|至今|现在)[年.\-/]?\s*(\d{1,2})?/);
+    let start = '';
+    let end = '';
     if (periodMatch) {
-      const start = `${periodMatch[1]}-${String(periodMatch[2] || '01').padStart(2, '0')}`;
+      start = `${periodMatch[1]}-${String(periodMatch[2] || '01').padStart(2, '0')}`;
       const endRaw = periodMatch[3];
-      const end = /至今|现在/.test(endRaw) ? '至今' : `${endRaw}-${String(periodMatch[4] || '01').padStart(2, '0')}`;
+      end = /至今|现在/.test(endRaw) ? '至今' : `${endRaw}-${String(periodMatch[4] || '01').padStart(2, '0')}`;
+    } else {
+      // 只有开始时间：年份[.年/-]月? 后面不跟 [-~至到]
+      const single = line.match(/((?:19|20)\d{2})[年.\-]?\s*(\d{1,2})?月?(?!\s*[-~至到])/);
+      if (single) {
+        start = `${single[1]}-${String(single[2] || '01').padStart(2, '0')}`;
+        end = '';
+        periodMatch = single;
+      }
+    }
+    if (periodMatch) {
       const nameLine = line.replace(periodMatch[0], '').trim() || lines[i + 1] || '';
       // 角色词：从行末匹配连续 1-3 个角色单元
       // 注意：裸「开发」不当角色（太常见于项目名如「技术开发」「系统开发」），
@@ -390,15 +404,19 @@ function parseExperiences(text) {
         name = nameLine.slice(0, nameLine.length - roleMatch[0].length);
       }
       // 去掉括号内容 + 首尾分隔符（空格 / | / · / - / 冒号 / 逗号）
+      // 在 ▪ / 项目简介 / 个人职责 / 项目成果 等描述标记处截断，避免描述混入名称
       name = name
         .replace(/\(.*?\)/g, '')
         .replace(/（.*?）/g, '')
+        .replace(/[▪•·].*$/, '')
+        .replace(/(项目简介|个人职责|项目成果|研究重点|合作对接|宣传创作|专题访谈|部门管理|班务协助|节目策划).*$/, '')
         .replace(/^[\s|·\-:：,，]+|[\s|·\-:：,，]+$/g, '')
         .trim()
         .slice(0, 40);
       const descLines = [];
       let j = i + 1;
-      while (j < lines.length && !/((?:19|20)\d{2})[年.\-/]?\s*(\d{1,2})?\s*[-~至到]/.test(lines[j])) {
+      // 遇到以年份开头的行 → 认为是下一条经历，停止收集描述
+      while (j < lines.length && !/^(?:19|20)\d{2}/.test(lines[j])) {
         descLines.push(lines[j]);
         j += 1;
       }

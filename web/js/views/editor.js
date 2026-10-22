@@ -1,6 +1,6 @@
-import { getProfile } from '../store.js?v=20261023r';
-import { COLORS } from '../seed.js?v=20261023r';
-import { escapeHtml, ageFrom, hexA } from '../utils.js?v=20261023r';
+import { getProfile } from '../store.js?v=20261023s';
+import { COLORS } from '../seed.js?v=20261023s';
+import { escapeHtml, ageFrom, hexA } from '../utils.js?v=20261023s';
 
 const NAV = [
   { k: 'basic', icon: '👤', label: '基本信息' },
