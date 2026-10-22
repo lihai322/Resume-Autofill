@@ -1,15 +1,15 @@
 import {
   state, loadState, saveSession, saveProfiles, saveSettings,
   getProfile, addProfile, resetAll
-} from './store.js?v=20261023j';
-import { seedProfiles } from './seed.js?v=20261023j';
-import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023j';
-import * as authView from './views/auth.js?v=20261023j';
-import * as profilesView from './views/profiles.js?v=20261023j';
-import * as importView from './views/import.js?v=20261023j';
-import * as editorView from './views/editor.js?v=20261023j';
-import * as settingsView from './views/settings.js?v=20261023j';
-import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023j';
+} from './store.js?v=20261023k';
+import { seedProfiles } from './seed.js?v=20261023k';
+import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023k';
+import * as authView from './views/auth.js?v=20261023k';
+import * as profilesView from './views/profiles.js?v=20261023k';
+import * as importView from './views/import.js?v=20261023k';
+import * as editorView from './views/editor.js?v=20261023k';
+import * as settingsView from './views/settings.js?v=20261023k';
+import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023k';
 
 loadState();
 
@@ -104,9 +104,10 @@ async function runParse(file, useSimulated) {
         }
       }
       appendLog(`✓ 提取文本 ${text.length} 字符`);
-      const preview = text.replace(/\s+/g, ' ').slice(0, 400);
+      const preview = text.replace(/\s+/g, ' ').slice(0, 800);
       appendLog(`<div style="margin-top:6px;padding:8px;background:#f5f5f5;border-radius:6px;font-size:11px;color:#555;line-height:1.6;word-break:break-all">📄 原文片段：${escapeHtml(preview)}…</div>`);
       const parsed = parseResumeText(text);
+      appendLog(`✓ 识别到教育经历 ${parsed.education?.length || 0} 条、项目经历 ${parsed.experiences?.length || 0} 条`);
       state.draft = mergeDraft(parsed);
       const low = lowConfidenceFields(state.draft);
       if (low.length) appendLog(`⚠ 低置信度字段：${low.join('、')}`);
