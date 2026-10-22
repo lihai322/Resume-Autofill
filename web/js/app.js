@@ -1,15 +1,15 @@
 import {
   state, loadState, saveSession, saveProfiles, saveSettings,
   getProfile, addProfile, resetAll
-} from './store.js?v=20261023m';
-import { seedProfiles } from './seed.js?v=20261023m';
-import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023m';
-import * as authView from './views/auth.js?v=20261023m';
-import * as profilesView from './views/profiles.js?v=20261023m';
-import * as importView from './views/import.js?v=20261023m';
-import * as editorView from './views/editor.js?v=20261023m';
-import * as settingsView from './views/settings.js?v=20261023m';
-import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023m';
+} from './store.js?v=20261023n';
+import { seedProfiles } from './seed.js?v=20261023n';
+import { collectForm, downloadJson, escapeHtml, newId, today, toast } from './utils.js?v=20261023n';
+import * as authView from './views/auth.js?v=20261023n';
+import * as profilesView from './views/profiles.js?v=20261023n';
+import * as importView from './views/import.js?v=20261023n';
+import * as editorView from './views/editor.js?v=20261023n';
+import * as settingsView from './views/settings.js?v=20261023n';
+import { extractText, ocrImage, parseResumeText, lowConfidenceFields } from './pdf/parser.js?v=20261023n';
 
 loadState();
 
@@ -129,10 +129,12 @@ async function runParse(file, useSimulated) {
       const low = lowConfidenceFields(state.draft);
       if (low.length) appendLog(`⚠ 低置信度字段：${low.join('、')}`);
     }
-    appendLog('⚙ 准备预览确认…');
-    await delay(300);
-    state.wizardStep = 2;
-    render();
+    // 解析完成，停止 spinner，显示「下一步」按钮让用户先看日志
+    const spin = document.querySelector('.parsing .spinner');
+    if (spin) spin.style.display = 'none';
+    const titleEl = document.querySelector('.parsing .font-semibold');
+    if (titleEl) titleEl.textContent = '✅ 解析完成，请检查日志';
+    appendLog('<button onclick="A.nextWizardStep(2)" style="margin-top:14px;padding:9px 22px;background:var(--primary,#4f46e5);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">下一步：预览确认 →</button>');
   } catch (err) {
     console.error(err);
     appendLog(`❌ 出错：${err.message || err}`);
