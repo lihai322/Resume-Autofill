@@ -119,7 +119,8 @@ const state = {
   mapping: [],
   query: '',
   picker: null,
-  skipped: 0
+  skipped: 0,
+  debug: null // { scan: [...], eduSummary: '...', expSummary: '...' }
 };
 
 const app = document.getElementById('app');
@@ -153,6 +154,10 @@ async function init() {
     state.fields.forEach((f) => {
       console.log(`  [${f.idx}] label="${f.label || '(空)'}" name="${f.name}" type=${f.type} required=${f.required}`);
     });
+
+    // 预构建一次映射用于诊断摘要（展示在弹窗 UI 上，用户不用跑 Console）
+    const summary = buildDebugSummary();
+    state.debug = summary;
   } catch (err) {
     console.warn('[简历速填] 初始化失败：', err);
     state.host = state.host || 'demo.recruit-site.com';
@@ -297,6 +302,46 @@ function allItems() {
   return state.mapping.flatMap((g) => g.items);
 }
 
+/**
+ * 初始化时快速模拟一次映射，生成诊断摘要
+ * 返回 { edu: [...], exp: [...], ungrouped: [{idx, label, name, why}] }
+ */
+function buildDebugSummary() {
+  // 跟 buildMapping 一模一样的规则，只跑一次不写 state.mapping
+  const counters = {};
+  const result = { edu: [], exp: [], all: [] };
+
+  state.fields.forEach((f) => {
+    const text = `${f.label || ''} ${f.name || ''}`.trim();
+    const rule = matchRule(text);
+
+    let path = null;
+    if (rule?.pathTemplate && rule.arrayKey) {
+      const idx = counters[rule.arrayKey] || 0;
+      counters[rule.arrayKey] = idx + 1;
+      path = rule.pathTemplate.replace('{i}', idx);
+    } else if (rule?.path) {
+      path = rule.path;
+    }
+
+    const value = path ? getByPath(state.profile, path) : '';
+    const rec = {
+      idx: f.idx, label: f.label || '(无label)', name: f.name || '(无name)',
+      matched: !!path, path: path || null,
+      value: Array.isArray(value) ? value.join('、') : String(value ?? ''),
+      rule: rule?.group || null,
+      why: path ? (value ? '✅ 有值' : '⚠️ 匹配但档案无值') : '❌ 未匹配'
+    };
+
+    if (rule?.group === '教育经历') result.edu.push(rec);
+    else if (rule?.group === '项目经历') result.exp.push(rec);
+    else result.all.push(rec);
+  });
+
+  result.counters = counters;
+  return result;
+}
+
 /* ---------------- 渲染 ---------------- */
 function render() {
   if (state.screen === 'loading') {
@@ -327,7 +372,57 @@ function popupBody() {
   const pending = total - matched;
   const p = state.profile;
 
+  const dbg = state.debug;
+  let debugHtml = '';
+  if (dbg) {
+    const eduOk = dbg.edu.filter((r) => r.matched && r.value);
+    const eduBad = dbg.edu.filter((r) => !r.matched || !r.value);
+    const expOk = dbg.exp.filter((r) => r.matched && r.value);
+
+    const eduRows = dbg.edu.map((r) => {
+      const cls = !r.matched ? 'bad' : !r.value ? 'warn' : 'ok';
+      return `<div class="dc-row ${cls}">
+        <span class="dc-idx">[${r.idx}]</span>
+        <span class="dc-label">${escapeHtml(r.label)}</span>
+        <span class="dc-path">${r.path || '—'}</span>
+        <span class="dc-why">${r.why}</span>
+      </div>`;
+    }).join('') || '<div style="color:var(--text-3);font-size:11px;padding:4px 0">页面上没扫描到任何教育相关字段</div>';
+
+    const expRows = dbg.exp.map((r) => {
+      const cls = !r.matched ? 'bad' : !r.value ? 'warn' : 'ok';
+      return `<div class="dc-row ${cls}">
+        <span class="dc-idx">[${r.idx}]</span>
+        <span class="dc-label">${escapeHtml(r.label)}</span>
+        <span class="dc-path">${r.path || '—'}</span>
+        <span class="dc-why">${r.why}</span>
+      </div>`;
+    }).join('');
+
+    debugHtml = `<div class="debug-card">
+      <div class="dc-head">
+        <div class="dc-title">🔧 诊断：教育 ${eduOk.length}/${dbg.edu.length} 成功 · 项目 ${expOk.length}/${dbg.exp.length} 成功</div>
+        <span class="dc-toggle" data-action="toggle-debug">展开 ▾</span>
+      </div>
+      <div class="dc-body">
+        <div class="dc-section">
+          <div class="dc-section-title">🎓 教育经历（扫描到 ${dbg.edu.length} 个相关字段）</div>
+          ${eduRows}
+        </div>
+        ${expRows ? `<div class="dc-section">
+          <div class="dc-section-title">💼 项目/实践（扫描到 ${dbg.exp.length} 个相关字段）</div>
+          ${expRows}
+        </div>` : ''}
+        ${dbg.counters && Object.keys(dbg.counters).length ? `<div class="dc-section">
+          <div class="dc-section-title">📊 数组字段分配计数器</div>
+          <div style="font-family:monospace;font-size:10px;color:#555;padding:4px 0">${JSON.stringify(dbg.counters)}</div>
+        </div>` : ''}
+      </div>
+    </div>`;
+  }
+
   return `<div class="body">
+    ${debugHtml}
     <div class="adapter card">
       <div class="icon">🎯</div>
       <div>
@@ -479,6 +574,14 @@ app.addEventListener('click', async (event) => {
 
   if (action === 'close') {
     window.close();
+    return;
+  }
+  if (action === 'toggle-debug') {
+    const card = target.closest('.debug-card');
+    if (card) {
+      card.classList.toggle('open');
+      target.textContent = card.classList.contains('open') ? '收起 ▴' : '展开 ▾';
+    }
     return;
   }
   if (action === 'open-mapping') {
