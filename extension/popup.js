@@ -173,21 +173,38 @@ function mappingKey(host) {
 }
 
 async function scanFields() {
-  if (!state.tabId) return MOCK_FIELDS;
+  if (!state.tabId) {
+    console.warn('[简历速填] 没有 tabId，使用 mock 数据');
+    return MOCK_FIELDS;
+  }
+  // 强制注入最新 content script
   try {
-    const res = await sendToTab({ type: 'RQF_SCAN' });
-    return res?.fields?.length ? res.fields : MOCK_FIELDS;
-  } catch {
+    await chrome.scripting.executeScript({ target: { tabId: state.tabId }, files: ['content.js'] });
+  } catch (err) {
+    console.warn('[简历速填] 注入 content.js 失败：', err?.message);
+  }
+  try {
+    const res = await chrome.tabs.sendMessage(state.tabId, { type: 'RQF_SCAN' });
+    if (res?.fields?.length) return res.fields;
+    console.warn('[简历速填] content 返回空字段，使用 mock 数据');
+    return MOCK_FIELDS;
+  } catch (err) {
+    console.warn('[简历速填] 扫描失败：', err?.message, ' 使用 mock 数据');
     return MOCK_FIELDS;
   }
 }
 
 async function sendToTab(message) {
+  // 先尝试注入最新 content.js（如果已存在会因版本门控自动替换）
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: state.tabId }, files: ['content.js'] });
+  } catch { /* 忽略注入错误，可能权限受限 */ }
+  // 发送消息
   try {
     return await chrome.tabs.sendMessage(state.tabId, message);
-  } catch {
-    await chrome.scripting.executeScript({ target: { tabId: state.tabId }, files: ['content.js'] });
-    return await chrome.tabs.sendMessage(state.tabId, message);
+  } catch (err) {
+    console.warn('[简历速填] 发消息失败：', err?.message || err);
+    return null;
   }
 }
 
@@ -550,9 +567,12 @@ async function doFill() {
   const items = allItems();
   const fills = items
     .filter((i) => i.path && !i.skip && i.value !== '')
-    .map((i) => ({ idx: i.idx, value: i.value }));
+    .map((i) => ({ idx: i.idx, value: i.value, label: i.site, path: i.path }));
 
   state.skipped = items.filter((i) => i.skip).length;
+
+  console.log('[简历速填 popup] 🚀 开始填充，', fills.length, '个字段：');
+  fills.forEach((f) => console.log(`  [${f.idx}] "${f.label}" ← "${f.value.slice(0, 40)}"  (${f.path})`));
 
   try {
     await sendToTab({ type: 'RQF_FILL', fills });
