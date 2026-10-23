@@ -147,6 +147,12 @@ async function init() {
       const saved = await chrome.storage.local.get(key);
       state.remembered = saved[key] || null;
     }
+
+    // 诊断日志：打印扫描到的所有字段（可在扩展弹窗 DevTools Console 查看）
+    console.log('[简历速填] 🔍 扫描完成，共', state.fields.length, '个字段：');
+    state.fields.forEach((f) => {
+      console.log(`  [${f.idx}] label="${f.label || '(空)'}" name="${f.name}" type=${f.type} required=${f.required}`);
+    });
   } catch (err) {
     console.warn('[简历速填] 初始化失败：', err);
     state.host = state.host || 'demo.recruit-site.com';
@@ -193,12 +199,13 @@ function matchRule(text) {
 function buildMapping() {
   const groups = new Map();
   const arrayCounters = {}; // arrayKey -> 当前下标计数器
+  const labelOccurences = {}; // label -> 出现次数（检测旧记忆是否应该跳过）
 
   state.fields.forEach((field) => {
     const text = `${field.label || ''} ${field.name || ''}`.trim();
     const rule = matchRule(text);
 
-    // 先看是否有记忆中的映射（记忆优先级最高）
+    // 先看是否有记忆中的映射（记忆优先级最高，但数组字段有例外）
     const memoryKey = field.label || `字段${field.idx}`;
     const storedPath = state.remembered?.items?.[memoryKey];
     const skipped = storedPath === '_skip';
@@ -209,8 +216,21 @@ function buildMapping() {
     if (skipped) {
       path = null; conf = 'none';
     } else if (storedPath) {
-      path = storedPath; conf = 'high';
-    } else if (rule) {
+      // 记忆存在，但如果记忆指向数组字段（education.0.* / experiences.0.*），
+      // 且该 label 在页面出现了多次，说明记忆是旧版本遗留的硬编码，
+      // 跳过记忆让 RULES 重新按顺序分配下标
+      const isArrayMem = /^(education|experiences|languages)\.\d+\./.test(storedPath);
+      labelOccurences[memoryKey] = (labelOccurences[memoryKey] || 0) + 1;
+      if (isArrayMem && labelOccurences[memoryKey] > 1) {
+        // 旧记忆跳过，用 RULES 重新分配
+        console.log(`  ↳ 跳过旧记忆 [${memoryKey}] -> ${storedPath}（数组字段第${labelOccurences[memoryKey]}次出现）`);
+        path = null; conf = 'none';
+      } else {
+        path = storedPath; conf = 'high';
+      }
+    }
+
+    if (!path && rule) {
       conf = rule.conf || 'none';
       if (rule.pathTemplate && rule.arrayKey) {
         // 数组字段：按出现顺序分配下标
@@ -239,6 +259,16 @@ function buildMapping() {
     if (!groups.has(group)) groups.set(group, []);
     groups.get(group).push(item);
   });
+
+  // 映射诊断日志
+  console.log('[简历速填] 📋 映射结果：');
+  for (const [group, items] of groups) {
+    console.log(`  —— ${group}（${items.length}个）——`);
+    items.forEach((it) => {
+      console.log(`  [${it.idx}] "${it.site}" → ${it.path || '(未匹配)'} | 值: "${it.value.slice(0, 30)}"`);
+    });
+  }
+  console.log('  📊 数组计数器:', arrayCounters);
 
   const order = ['基本信息', '教育经历', '项目经历', '其他', '未匹配字段'];
   state.mapping = order
