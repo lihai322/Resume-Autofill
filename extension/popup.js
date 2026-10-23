@@ -18,36 +18,94 @@ const MOCK_FIELDS = [
   { idx: 13, label: '期望薪资', type: 'text', required: false }
 ];
 
+/**
+ * RULES：页面字段 label → 档案路径的映射规则
+ * - 固定字段（姓名、手机...）: path 直接指向档案字段
+ * - 数组字段（教育经历、项目经历...）: arrayKey 表示同一类字段组，pathTemplate 带 {i} 下标占位
+ *   buildMapping 会按页面出现顺序自动分配下标 0, 1, 2...
+ */
 const RULES = [
-  { re: /(姓名|full.?name|^name$)/i, group: '基本信息', path: 'full_name', conf: 'high' },
-  { re: /(手机|电话|mobile|phone)/i, group: '基本信息', path: 'phone', conf: 'high' },
+  /* === 基本信息（单值） === */
+  { re: /(姓名|name(?!d)|full.?name)/i, group: '基本信息', path: 'full_name', conf: 'high' },
+  { re: /(手机|电话|mobile|phone|tel)/i, group: '基本信息', path: 'phone', conf: 'high' },
   { re: /(邮箱|邮件|e-?mail)/i, group: '基本信息', path: 'email', conf: 'high' },
   { re: /(出生|生日|birth|dob)/i, group: '基本信息', path: 'birth_date', conf: 'high' },
-  { re: /(城市|现居|所在地|city|location)/i, group: '基本信息', path: 'location', conf: 'low' },
-  { re: /(学校|院校|school)/i, group: '教育经历', path: 'education.0.school', conf: 'high' },
-  { re: /(专业|major)/i, group: '教育经历', path: 'education.0.major', conf: 'high' },
-  { re: /(学历|degree)/i, group: '教育经历', path: 'education.0.degree', conf: 'high' },
-  { re: /(项目名称|project.?name)/i, group: '项目经历', path: 'experiences.0.name', conf: 'high' },
-  { re: /(担任角色|角色|职位|role)/i, group: '项目经历', path: 'experiences.0.role', conf: 'high' },
-  { re: /(项目描述|描述|description)/i, group: '项目经历', path: 'experiences.0.desc', conf: 'low' },
-  { re: /(自我评价|个人评价|self.?evaluation)/i, group: '其他', path: 'self_evaluation', conf: 'high' }
+  { re: /(城市|现居|所在地|居住地|city|location|address)/i, group: '基本信息', path: 'location', conf: 'low' },
+  /* === 教育经历（多值） === */
+  { re: /(学校名称|毕业院校|毕业学校|所在院校|所在学校|就读学校|教育院校|学校|院校|university|college|school)/i,
+    group: '教育经历', arrayKey: 'edu_school', pathTemplate: 'education.{i}.school', conf: 'high' },
+  { re: /(专业名称|所学专业|主修专业|专业方向|专业|major|specialty)/i,
+    group: '教育经历', arrayKey: 'edu_major', pathTemplate: 'education.{i}.major', conf: 'high' },
+  { re: /(第一学历|最高学历|学历层次|学历|degree|education)/i,
+    group: '教育经历', arrayKey: 'edu_degree', pathTemplate: 'education.{i}.degree', conf: 'high' },
+  { re: /(学位类型|学位|academic.?degree|bachelor|master|doctor)/i,
+    group: '教育经历', arrayKey: 'edu_academic', pathTemplate: 'education.{i}.academic_degree', conf: 'medium' },
+  { re: /(绩点|gpa|平均绩点|学分绩点|成绩|均分|加权)/i,
+    group: '教育经历', arrayKey: 'edu_gpa', pathTemplate: 'education.{i}.gpa', conf: 'medium' },
+  { re: /(主修课程|所学课程|课程|courses?)/i,
+    group: '教育经历', arrayKey: 'edu_courses', pathTemplate: 'education.{i}.courses', conf: 'low' },
+  { re: /(教育经历时间|就读时间|在校时间|起止时间|开始时间|结束时间|入学时间|毕业时间|学习时间|period|start.?date|end.?date)/i,
+    group: '教育经历', arrayKey: 'edu_period', pathTemplate: 'education.{i}.period', conf: 'medium' },
+  /* === 项目 / 实践经历（多值） === */
+  { re: /(项目名称|项目名|实践名称|实践项目|实习名称|工作单位|公司名称|单位名称|project.?name|project|experience)/i,
+    group: '项目经历', arrayKey: 'exp_name', pathTemplate: 'experiences.{i}.name', conf: 'high' },
+  { re: /(担任角色|项目角色|担任职务|实习岗位|职位|岗位|职务|角色|role|position|title)/i,
+    group: '项目经历', arrayKey: 'exp_role', pathTemplate: 'experiences.{i}.role', conf: 'high' },
+  { re: /(开始时间|结束时间|起止时间|项目时间|实习时间|工作时间|start.?date|end.?date)/i,
+    group: '项目经历', arrayKey: 'exp_period', pathTemplate: 'experiences.{i}.start', conf: 'medium' },
+  { re: /(项目描述|项目介绍|项目详情|工作描述|工作职责|个人职责|实习内容|工作内容|实践内容|description|detail|responsibility)/i,
+    group: '项目经历', arrayKey: 'exp_desc', pathTemplate: 'experiences.{i}.desc', conf: 'low' },
+  /* === 语言能力（多值） === */
+  { re: /(英语水平|外语水平|语言能力|语言类型|语种|language)/i,
+    group: '其他', arrayKey: 'lang_lang', pathTemplate: 'languages.{i}.lang', conf: 'medium' },
+  { re: /(英语等级|外语等级|水平等级|等级|level)/i,
+    group: '其他', arrayKey: 'lang_level', pathTemplate: 'languages.{i}.level', conf: 'medium' },
+  { re: /(语言成绩|考试成绩|分数|score|cet|tem|ielts|toefl)/i,
+    group: '其他', arrayKey: 'lang_score', pathTemplate: 'languages.{i}.score', conf: 'medium' },
+  /* === 自我评价 === */
+  { re: /(自我评价|个人评价|个人简介|自我介绍|个人介绍|self.?evaluation|summary|objective)/i,
+    group: '其他', path: 'self_evaluation', conf: 'high' }
 ];
 
-const CANDIDATES = [
-  ['姓名', 'full_name'],
-  ['手机号', 'phone'],
-  ['邮箱', 'email'],
-  ['出生日期', 'birth_date'],
-  ['所在城市', 'location'],
-  ['毕业院校', 'education.0.school'],
-  ['专业', 'education.0.major'],
-  ['学历', 'education.0.degree'],
-  ['项目1-名称', 'experiences.0.name'],
-  ['项目1-角色', 'experiences.0.role'],
-  ['项目1-描述', 'experiences.0.desc'],
-  ['自我评价', 'self_evaluation'],
-  ['GitHub', 'custom_fields.0.value']
-];
+/**
+ * CANDIDATES：手动选择时可挑选的档案字段
+ * 动态生成 education.0~2、experiences.0~2 的全套选项
+ */
+function buildCandidates(profile) {
+  const list = [
+    ['姓名', 'full_name'],
+    ['手机号', 'phone'],
+    ['邮箱', 'email'],
+    ['出生日期', 'birth_date'],
+    ['所在城市', 'location']
+  ];
+  // 动态枚举教育经历
+  const eduCount = Math.max(profile?.education?.length || 0, 1);
+  for (let i = 0; i < eduCount && i < 3; i++) {
+    list.push(`教育${i + 1}-学校`, `education.${i}.school`);
+    list.push(`教育${i + 1}-专业`, `education.${i}.major`);
+    list.push(`教育${i + 1}-学历`, `education.${i}.degree`);
+    list.push(`教育${i + 1}-学位`, `education.${i}.academic_degree`);
+    list.push(`教育${i + 1}-起止时间`, `education.${i}.period`);
+    list.push(`教育${i + 1}-绩点`, `education.${i}.gpa`);
+  }
+  // 动态枚举项目/实践
+  const expCount = Math.max(profile?.experiences?.length || 0, 1);
+  for (let i = 0; i < expCount && i < 3; i++) {
+    list.push(`经历${i + 1}-名称`, `experiences.${i}.name`);
+    list.push(`经历${i + 1}-角色`, `experiences.${i}.role`);
+    list.push(`经历${i + 1}-开始时间`, `experiences.${i}.start`);
+    list.push(`经历${i + 1}-结束时间`, `experiences.${i}.end`);
+    list.push(`经历${i + 1}-描述`, `experiences.${i}.desc`);
+  }
+  list.push(['自我评价', 'self_evaluation']);
+  if (profile?.custom_fields?.length) {
+    profile.custom_fields.forEach((f, i) => {
+      list.push([f.label || `自定义字段${i + 1}`, `custom_fields.${i}.value`]);
+    });
+  }
+  return list;
+}
 
 const state = {
   screen: 'loading',
@@ -134,12 +192,37 @@ function matchRule(text) {
 
 function buildMapping() {
   const groups = new Map();
+  const arrayCounters = {}; // arrayKey -> 当前下标计数器
+
   state.fields.forEach((field) => {
     const text = `${field.label || ''} ${field.name || ''}`.trim();
     const rule = matchRule(text);
-    const storedPath = state.remembered?.items?.[field.label || `字段${field.idx}`];
+
+    // 先看是否有记忆中的映射（记忆优先级最高）
+    const memoryKey = field.label || `字段${field.idx}`;
+    const storedPath = state.remembered?.items?.[memoryKey];
     const skipped = storedPath === '_skip';
-    const path = skipped ? null : (storedPath || rule?.path || null);
+
+    let path = null;
+    let conf = 'none';
+
+    if (skipped) {
+      path = null; conf = 'none';
+    } else if (storedPath) {
+      path = storedPath; conf = 'high';
+    } else if (rule) {
+      conf = rule.conf || 'none';
+      if (rule.pathTemplate && rule.arrayKey) {
+        // 数组字段：按出现顺序分配下标
+        const key = rule.arrayKey;
+        const idx = arrayCounters[key] || 0;
+        arrayCounters[key] = idx + 1;
+        path = rule.pathTemplate.replace('{i}', idx);
+      } else {
+        path = rule.path || null;
+      }
+    }
+
     const value = path ? getByPath(state.profile, path) : '';
     const group = rule?.group || '其他';
 
@@ -149,8 +232,8 @@ function buildMapping() {
       required: field.required,
       path,
       value: Array.isArray(value) ? value.join('、') : String(value ?? ''),
-      conf: skipped ? 'none' : storedPath ? 'high' : rule?.conf || 'none',
-      skip: skipped
+      conf,
+      skip: false
     };
 
     if (!groups.has(group)) groups.set(group, []);
@@ -227,7 +310,8 @@ function countMatched() {
     const text = `${field.label || ''} ${field.name || ''}`.trim();
     const stored = state.remembered?.items?.[field.label || `字段${field.idx}`];
     if (stored && stored !== '_skip') return true;
-    return matchRule(text)?.conf === 'high';
+    const rule = matchRule(text);
+    return rule && (rule.conf === 'high');
   }).length;
 }
 
@@ -285,7 +369,8 @@ function mappingFooter() {
 
 function pickerSheet() {
   const { group, index } = state.picker;
-  const items = CANDIDATES.map(([label, path]) => {
+  const candidates = buildCandidates(state.profile);
+  const items = candidates.map(([label, path]) => {
     const value = getByPath(state.profile, path);
     return `<div class="pick" data-action="pick-field" data-group="${group}" data-index="${index}"
       data-path="${path}">
